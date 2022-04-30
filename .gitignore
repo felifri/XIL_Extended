@@ -1,0 +1,7 @@
+.DS_Store
+data_store/rawdata/MNIST
+learner/model_store
+logs
+output_images
+output_wr_metric
+runs
