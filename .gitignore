@@ -1,6 +1,14 @@
 .DS_Store
+__pycache__/
+.idea/
 data_store/rawdata/MNIST
+data_store/__pycache__
+data_store/rawdata/__pycache__
+xil_methods/__pycache__
+xil_methods/cd_util/__pycache__
 learner/model_store
+learner/__pycache__
+learner/models/__pycache__
 logs
 output_images
 output_wr_metric
