@@ -21,6 +21,7 @@ import os
 parser = argparse.ArgumentParser(description='XIL EVAL')
 parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'Mix'],
                     help='Which XIL method to test?')
+parser.add_argument('--loss', default='11100', type=str)
 parser.add_argument('--dataset', default='Mnist', type=str, choices=['Mnist','FMnist'],
                     help='Which dataset to use?')
 parser.add_argument('--run', default=0, type=int,
@@ -30,13 +31,13 @@ args = parser.parse_args()
 # -
 
 # Get cpu or gpu device for training.
-DEVICE = "cpu" #"cuda"
+DEVICE = "cuda"
 SEED = [1, 10, 100, 1000, 10000]
 SHUFFLE = True
 BATCH_SIZE = 256
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 0.0001
-EPOCHS = 8 #50
+EPOCHS = 50
 SAVE_BEST = True
 VERBOSE_AFTER_N_EPOCHS = 2
 
@@ -74,7 +75,16 @@ if args.dataset == 'Mnist':
         loss_fn = CDEPLoss(args.reg)
     elif args.mode == 'Mix':
         args.reg = None
-        loss_fn = MixLoss()
+        lst = []
+        for i in args.loss:
+            if int(i) > 1 or int(i) < 0:
+                pass # throw error
+            else:
+                lst.append(int(i))
+        if lst[4] == 1:
+            train_dataloader, val_dataloader = decoy_mnist(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, \
+                                                           hint_expl=True)
+        loss_fn = MixLoss(rrr=lst[0], rbr=lst[1], rrrg=lst[2], cdep=lst[3], hint=lst[4])
         
 elif args.dataset == 'FMnist':
     train_dataloader, test_dataloader = decoy_mnist(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
@@ -106,14 +116,26 @@ elif args.dataset == 'FMnist':
         loss_fn = CDEPLoss(args.reg)
     elif args.mode == 'Mix':
         args.reg = None
-        loss_fn = MixLoss()
+        lst = []
+        for i in args.loss:
+            if int(i) > 1 or int(i) < 0:
+                pass  # throw error
+            else:
+                lst.append(int(i))
+        if lst[4] == 1:
+            train_dataloader, val_dataloader = decoy_mnist(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, \
+                                                           hint_expl=True)
+        loss_fn = MixLoss(rrr=lst[0], rbr=lst[1], rrrg=lst[2], cdep=lst[3], hint=lst[4])
 # -
 
 
 i = args.run
 util.seed_all(SEED[i])
 model = dnns.SimpleConvNet().to(DEVICE)
-MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
+if args.mode == 'Mix':
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--loss={args.loss}--reg={args.reg}--seed={SEED[i]}--run={i}'
+else:
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 learner = Learner(model, loss_fn, optimizer, DEVICE, MODELNAME)
 learner.fit(train_dataloader, test_dataloader, EPOCHS, save_best=SAVE_BEST, verbose_after_n_epochs=VERBOSE_AFTER_N_EPOCHS)

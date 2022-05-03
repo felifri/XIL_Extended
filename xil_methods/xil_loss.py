@@ -378,7 +378,7 @@ class HINTLoss(nn.Module):
         self.last_conv_specified = last_conv_specified
         self.upsample = upsample
         self.weight = weight
-        self.postive_only = positive_only
+        self.positive_only = positive_only
         self.rr_clipping = rr_clipping
 
 
@@ -410,7 +410,7 @@ class HINTLoss(nn.Module):
         saliencies = explainer.attribute(X, target=y, relu_attributions=False)
         # normalize grads [0-1] to compare them to expl masks
         # norm_saliencies = util.norm_saliencies(saliencies)
-        norm_saliencies = util.norm_saliencies_fast(saliencies, positive_only=self.postive_only)
+        norm_saliencies = util.norm_saliencies_fast(saliencies, positive_only=self.positive_only)
 
         right_reason_loss = torch.zeros(1,).to(device)
 
@@ -450,7 +450,8 @@ class HINTLoss(nn.Module):
 
 class MixLoss(nn.Module):
     def __init__(self, regularizer_rate = None, base_criterion=F.cross_entropy, \
-            rr_clipping=None, weight=None, last_conv_specified=False, reduction='sum'):
+            rr_clipping=None, weight=None, last_conv_specified=False, reduction='sum', rrr=0, rbr=0, rrrg=0, cdep=0, hint=0, \
+                 model_type='mnist', upsample=False, positive_only=False):
 
         super().__init__()
         self.regularizer_rate = regularizer_rate
@@ -459,20 +460,55 @@ class MixLoss(nn.Module):
         self.weight = weight
         self.last_conv_specified = last_conv_specified
         self.reduction = reduction
+        self.upsample = upsample
+        self.positive_only = positive_only
+        self.model_type = model_type
+        self.rrr = rrr
+        self.rbr = rbr
+        self.rrrg = rrrg
+        self.cdep = cdep
+        self.hint = hint
 
     def forward(self, model, X, y, expl, logits, device):
-        self.regularizer_rate = 10
-        RRR = RRRLoss.forward(self, X, y, expl, logits)
+        res = 0
+        right_answer_loss = 0
+        right_reason_loss = 0
+        if self.rrr == 1:
+            self.regularizer_rate = 10
+            RRR = RRRLoss.forward(self, X, y, expl, logits)
+            res += RRR[0]
+            right_answer_loss += RRR[1]
+            right_reason_loss += RRR[2]
 
-        self.regularizer_rate = 1000000
-        RBR = RBRLoss.forward(self, model, X, y, expl, logits)
+        if self.rbr == 1:
+            self.regularizer_rate = 1000000
+            RBR = RBRLoss.forward(self, model, X, y, expl, logits)
+            res += RBR[0]
+            right_answer_loss += RBR[1]
+            right_reason_loss += RBR[2]
 
-        self.regularizer_rate = 10
-        RRRG = RRRGradCamLoss.forward(self, model, X, y, expl, logits, device)
+        if self.rrrg == 1:
+            self.regularizer_rate = 10
+            RRRG = RRRGradCamLoss.forward(self, model, X, y, expl, logits, device)
+            res += RRRG[0]
+            right_answer_loss += RRRG[1]
+            right_reason_loss += RRRG[2]
 
-        res = RRR[0] + RBR[0] + RRRG[0]
-        right_answer_loss = RRR[1] + RBR[1] + RRRG[1]
-        right_reason_loss = RRR[2] + RBR[2] + RRRG[2]
+        if self.cdep == 1:
+            self.regularizer_rate = 1000000
+            CDEP = CDEPLoss.forward(self, model, X, y, expl, logits, device)
+            res += CDEP[0][0]
+            right_answer_loss += CDEP[1]
+            right_reason_loss += CDEP[2][0]
+
+        if self.hint == 1:
+            self.regularizer_rate = 100
+            self.last_conv_specified = True
+            self.upsample = True
+            HINT = HINTLoss.forward(self, model, X, y, expl, logits, device)
+            res += HINT[0][0]
+            right_answer_loss += HINT[1]
+            right_reason_loss += HINT[2][0]
 
         return res, right_answer_loss, right_reason_loss
 

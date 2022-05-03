@@ -1,4 +1,5 @@
 .DS_Store
+test.sh
 __pycache__/
 .idea/
 data_store/rawdata/MNIST

@@ -133,19 +133,7 @@ class Learner:
                             output = self.model(X)
                             expl = expl.float()
                             loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl, output, self.device)
-                            # self.loss = RRRLoss
-                            # loss_RRR, ra_loss_RRR, rr_loss_RRR = self.loss(X, y, expl, output)
-                            #
-                            # expl = expl.float()
-                            # self.loss = RBRLoss
-                            # loss_RBR, ra_loss_RBR, rr_loss_RBR = self.loss(self.model, X, y, expl, output)
-                            #
-                            # self.loss = RRRGradCamLoss
-                            # loss_RRRG, ra_loss_RRRG, rr_loss_RRRG = self.loss(self.model, X, y, expl, output, self.device)
-                            #
-                            # loss = loss_RRR + loss_RBR + loss_RRRG
-                            # ra_loss_c = ra_loss_RRR + ra_loss_RBR + ra_loss_RRRG
-                            # rr_loss_c = rr_loss_RRR + rr_loss_RBR + rr_loss_RRRG
+
 
                         else:
                             X, y = data[0].to(self.device), data[1].to(self.device)
@@ -169,7 +157,7 @@ class Learner:
                     if isinstance(self.loss, (RRRLoss, HINTLoss, CDEPLoss, RBRLoss, RRRGradCamLoss)) \
                         and (epoch) > disable_xil_loss_first_n_epochs:
                         ra_loss += ra_loss_c.item()
-                        rr_loss += rr_loss_c.item() 
+                        rr_loss += rr_loss_c.item()
                 
                 train_loss /= size
                 correct /= size
