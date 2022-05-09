@@ -192,7 +192,6 @@ class RBRLoss(nn.Module):
         
         return res, right_answer_loss, right_reason_loss
 
-
 class RRRGradCamLoss(nn.Module):
     """
     RRRGradCAM loss. Similar to the RRR loss but instead of IG uses
@@ -448,10 +447,47 @@ class HINTLoss(nn.Module):
         model.train() # probably useless
         return res, right_answer_loss, right_reason_loss
 
-class MixLoss(nn.Module):
+class MixLoss1(nn.Module):
     def __init__(self, regularizer_rate = None, base_criterion=F.cross_entropy, \
-            rr_clipping=None, weight=None, last_conv_specified=False, reduction='sum', rrr=0, rbr=0, rrrg=0, cdep=0, hint=0, \
-                 model_type='mnist', upsample=False, positive_only=False):
+            rr_clipping=None, weight=None, last_conv_specified=False, reduction='sum'):
+
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.rr_clipping = rr_clipping # good rate for decoy mnist 1.0
+        self.weight = weight
+        self.last_conv_specified = last_conv_specified
+        self.reduction = reduction
+
+
+    def forward(self, model, X, y, expl, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        self.regularizer_rate = 10
+        RRR = RRRLoss.forward(self, X, y, expl, logits)
+        right_answer_loss += RRR[1]
+        right_reason_loss += RRR[2]
+
+        self.regularizer_rate = 100000
+        RBR = RBRLoss.forward(self, model, X, y, expl.float(), logits)
+        right_answer_loss += RBR[1]
+        right_reason_loss += RBR[2]
+
+        self.regularizer_rate = 1
+        RRRG = RRRGradCamLoss.forward(self, model, X, y, expl.float(), logits, device)
+        right_answer_loss += RRRG[1]
+        right_reason_loss += RRRG[2]
+
+        right_answer_loss /= 3
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss2(nn.Module):
+    def __init__(self, regularizer_rate=1, base_criterion=F.cross_entropy, reduction='sum',\
+        last_conv_specified=False, weight=None, rr_clipping=None, upsample=False, positive_only=False):
 
         super().__init__()
         self.regularizer_rate = regularizer_rate
@@ -462,53 +498,25 @@ class MixLoss(nn.Module):
         self.reduction = reduction
         self.upsample = upsample
         self.positive_only = positive_only
-        self.model_type = model_type
-        self.rrr = rrr
-        self.rbr = rbr
-        self.rrrg = rrrg
-        self.cdep = cdep
-        self.hint = hint
 
-    def forward(self, model, X, y, expl, logits, device):
-        res = 0
+    def forward(self, model, X, y, expl_p, expl_r, logits, device):
         right_answer_loss = 0
         right_reason_loss = 0
-        if self.rrr == 1:
-            self.regularizer_rate = 10
-            RRR = RRRLoss.forward(self, X, y, expl, logits)
-            res += RRR[0]
-            right_answer_loss += RRR[1]
-            right_reason_loss += RRR[2]
 
-        if self.rbr == 1:
-            self.regularizer_rate = 1000000
-            RBR = RBRLoss.forward(self, model, X, y, expl, logits)
-            res += RBR[0]
-            right_answer_loss += RBR[1]
-            right_reason_loss += RBR[2]
+        self.regularizer_rate = 1
+        RRRG = RRRGradCamLoss.forward(self, model, X, y, expl_p, logits, device)
+        right_answer_loss += RRRG[1]
+        right_reason_loss += RRRG[2]
 
-        if self.rrrg == 1:
-            self.regularizer_rate = 10
-            RRRG = RRRGradCamLoss.forward(self, model, X, y, expl, logits, device)
-            res += RRRG[0]
-            right_answer_loss += RRRG[1]
-            right_reason_loss += RRRG[2]
+        self.regularizer_rate = 100
+        self.last_conv_specified = True
+        self.upsample = True
+        HINT = HINTLoss.forward(self, model, X, y, expl_r, logits, device)
+        right_answer_loss += HINT[1]
+        right_reason_loss += HINT[2][0]
 
-        if self.cdep == 1:
-            self.regularizer_rate = 1000000
-            CDEP = CDEPLoss.forward(self, model, X, y, expl, logits, device)
-            res += CDEP[0][0]
-            right_answer_loss += CDEP[1]
-            right_reason_loss += CDEP[2][0]
+        right_answer_loss /= 2
 
-        if self.hint == 1:
-            self.regularizer_rate = 100
-            self.last_conv_specified = True
-            self.upsample = True
-            HINT = HINTLoss.forward(self, model, X, y, expl, logits, device)
-            res += HINT[0][0]
-            right_answer_loss += HINT[1]
-            right_reason_loss += HINT[2][0]
+        res = right_answer_loss + right_reason_loss
 
         return res, right_answer_loss, right_reason_loss
-

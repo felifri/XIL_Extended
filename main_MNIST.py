@@ -7,8 +7,8 @@ from torch.utils import data
 
 from learner.models import dnns
 from learner.learner import Learner
-from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented
-from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, MixLoss
+from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented, decoy_mnist_both
+from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, MixLoss1, MixLoss2
 import util
 import explainer
 import matplotlib.pyplot as plt
@@ -19,9 +19,8 @@ import os
 # +
 # __import__("pdb").set_trace()
 parser = argparse.ArgumentParser(description='XIL EVAL')
-parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'Mix'],
+parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'Mix1', 'Mix2'],
                     help='Which XIL method to test?')
-parser.add_argument('--loss', default='11100', type=str)
 parser.add_argument('--dataset', default='Mnist', type=str, choices=['Mnist','FMnist'],
                     help='Which dataset to use?')
 parser.add_argument('--run', default=0, type=int,
@@ -73,18 +72,16 @@ if args.dataset == 'Mnist':
     elif args.mode == 'CDEP':
         args.reg = 1000000  
         loss_fn = CDEPLoss(args.reg)
-    elif args.mode == 'Mix':
+    elif args.mode == 'Mix1':
+        # Loss function combination of RRR, RBR, and RRRG
         args.reg = None
-        lst = []
-        for i in args.loss:
-            if int(i) > 1 or int(i) < 0:
-                pass # throw error
-            else:
-                lst.append(int(i))
-        if lst[4] == 1:
-            train_dataloader, val_dataloader = decoy_mnist(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, \
-                                                           hint_expl=True)
-        loss_fn = MixLoss(rrr=lst[0], rbr=lst[1], rrrg=lst[2], cdep=lst[3], hint=lst[4])
+        loss_fn = MixLoss1()
+    elif args.mode == 'Mix2':
+        # Loss function combination of RRRG + HINT
+        train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss2()
+
         
 elif args.dataset == 'FMnist':
     train_dataloader, test_dataloader = decoy_mnist(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
@@ -114,28 +111,22 @@ elif args.dataset == 'FMnist':
     elif args.mode == 'CDEP':
         args.reg = 2000000  
         loss_fn = CDEPLoss(args.reg)
-    elif args.mode == 'Mix':
+    elif args.mode == 'Mix1':
+        # Loss function combination of RRR, RBR, and RRRG
         args.reg = None
-        lst = []
-        for i in args.loss:
-            if int(i) > 1 or int(i) < 0:
-                pass  # throw error
-            else:
-                lst.append(int(i))
-        if lst[4] == 1:
-            train_dataloader, val_dataloader = decoy_mnist(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, \
-                                                           hint_expl=True)
-        loss_fn = MixLoss(rrr=lst[0], rbr=lst[1], rrrg=lst[2], cdep=lst[3], hint=lst[4])
+        loss_fn = MixLoss1()
+    elif args.mode == 'Mix2':
+        # Loss function combination of RRRG + HINT
+        train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss2()
 # -
 
 
 i = args.run
 util.seed_all(SEED[i])
 model = dnns.SimpleConvNet().to(DEVICE)
-if args.mode == 'Mix':
-    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--loss={args.loss}--reg={args.reg}--seed={SEED[i]}--run={i}'
-else:
-    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
+MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 learner = Learner(model, loss_fn, optimizer, DEVICE, MODELNAME)
 learner.fit(train_dataloader, test_dataloader, EPOCHS, save_best=SAVE_BEST, verbose_after_n_epochs=VERBOSE_AFTER_N_EPOCHS)

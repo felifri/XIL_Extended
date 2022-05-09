@@ -194,6 +194,139 @@ def decoy_mnist(no_decoy=False, fmnist=False, batch_size=256, device='cuda', \
     #print(f"Test set: {test.shape}")
     return DataLoader(train, batch_size, train_shuffle), DataLoader(test, batch_size, test_shuffle)
 
+
+def decoy_mnist_both(no_decoy=False, fmnist=False, batch_size=256, device='cuda', \
+    train_shuffle=False, test_shuffle=False, feedback=None, \
+    n_expl=None, flatten=False):
+    if fmnist:
+        Xr, X, y, E, E_hint, Xtr, Xt, yt, Et, _ = load_decoy_mnist.generate_dataset( \
+            cachefile='data_store/rawdata/fashionMnist/decoy-fmnist.npz', fmnist=True)
+    else:
+        Xr, X, y, E, E_hint, Xtr, Xt, yt, Et, _ = load_decoy_mnist.generate_dataset( \
+            cachefile='data_store/rawdata/MNIST/decoy-mnist.npz')
+
+    if feedback is not None:
+        n, d = E.shape[0], E.shape[1]
+        if feedback == 'random':
+            # set explanation feedback masks to random masks
+            E = np.random.randint(2, size=n * d).reshape(n, d)
+            E_hint = np.random.randint(2, size=n * d).reshape(n, d)
+
+        elif feedback == 'adversarial':
+            # set explanation feedback masks to all ones
+            E = np.ones((n, d), dtype=np.int64)
+            E_hint = np.ones((n, d), dtype=np.int64)
+
+        elif feedback == 'incomplete':
+            # delete top half of the feedback mask (4x4 squares -> 2x4 squares)
+            for i, e in enumerate(E):
+                true_indexes = np.where(e == True)[0]
+                first_half_true_indexes = true_indexes[:8]
+                np.put(e, first_half_true_indexes, np.array(False))
+                E[i] = e
+
+            for i, e in enumerate(E_hint):
+                true_indexes = np.where(e == True)[0]
+                half_mask_number = int(true_indexes.size / 2)
+                first_half_true_indexes = true_indexes[:half_mask_number]
+                np.put(e, first_half_true_indexes, np.array(False))
+                E_hint[i] = e
+
+        elif feedback == 'wrong':
+            # add a 5 x 3 rectangle in the top middle or bottom middle on the border
+            # rectangle is placed on the opposite side of the the confounder square
+            if not fmnist:
+                for i, e in enumerate(E):
+                    det = np.where(e == True)[0]
+                    if det.item(0) in [x for x in range(0, 28)]:  # top row
+                        ind = [738, 739, 740, 741, 742, 743, 744, 745, 766, 767, 768, 769, 770, 771, 772, 773]
+                    else:  # bottom row
+                        ind = [10, 11, 12, 13, 14, 15, 16, 17, 38, 39, 40, 41, 42, 43, 44, 45]
+                    cur = np.zeros(d, dtype=np.int64)
+                    cur[ind] = 1
+                    E[i] = cur
+
+                E_hint = np.copy(E)
+
+            if fmnist:
+                for i, e in enumerate(E):
+                    det = np.where(e == True)[0]
+                    if y[i] in [0, 1, 2, 3, 4, 6, 8]:  # rectangle left right
+                        if det.item(0) in [0, 672]:  # left
+                            ind = [306, 307, 334, 335, 362, 363, 390, 391, 418, 419, 446, 447, 474, 475, 502, 503]
+                        else:  # right
+                            ind = [280, 281, 308, 309, 336, 337, 364, 365, 392, 393, 420, 421, 448, 449, 476, 477]
+                    else:  # rectangle bottom top row
+                        if det.item(0) in [0, 24]:  # top
+                            ind = [738, 739, 740, 741, 742, 743, 744, 745, 766, 767, 768, 769, 770, 771, 772, 773]
+                        else:  # bottom
+                            ind = [10, 11, 12, 13, 14, 15, 16, 17, 38, 39, 40, 41, 42, 43, 44, 45]
+                    cur = np.zeros(d, dtype=np.int64)
+                    cur[ind] = 1
+                    E[i] = cur
+
+                E_hint = np.copy(E)
+
+    if n_expl is not None:
+        not_used_flags = np.zeros((E.shape[0] - n_expl), dtype=np.int64)
+        used_flags = np.ones(n_expl, dtype=np.int64)
+        flags = np.concatenate((used_flags, not_used_flags), axis=0)
+
+    if not flatten:  # if input for a conv net sets should not be flat
+        X = X.reshape((60000, 1, 28, 28))
+        Xt = Xt.reshape((10000, 1, 28, 28))
+        E = E.reshape(60000, 1, 28, 28)
+        E_hint = E_hint.reshape(60000, 1, 28, 28)
+        Xr = Xr.reshape((60000, 1, 28, 28))
+        Xtr = Xtr.reshape((10000, 1, 28, 28))
+        Et = Et.reshape(10000, 1, 28, 28)
+
+    if device == 'cpu':
+        X, y, E, E_hint = torch.from_numpy(X).type(torch.FloatTensor), \
+                          torch.from_numpy(y).type(torch.LongTensor), \
+                          torch.from_numpy(E).type(torch.LongTensor), \
+                          torch.from_numpy(E_hint).type(torch.LongTensor)
+
+        if n_expl is not None:
+            flags = torch.from_numpy(flags).type(torch.LongTensor)
+
+        Xt, yt, Et = torch.from_numpy(Xt).type(torch.FloatTensor), \
+                     torch.from_numpy(yt).type(torch.LongTensor), \
+                     torch.from_numpy(Et).type(torch.LongTensor)
+
+        Xr, Xtr = torch.from_numpy(Xr).type(torch.FloatTensor), \
+                  torch.from_numpy(Xtr).type(torch.FloatTensor)
+
+    else:
+        X, y, E, E_hint = torch.from_numpy(X).type(torch.cuda.FloatTensor), \
+                          torch.from_numpy(y).type(torch.cuda.LongTensor), \
+                          torch.from_numpy(E).type(torch.cuda.LongTensor), \
+                          torch.from_numpy(E_hint).type(torch.cuda.LongTensor)
+
+        if n_expl is not None:
+            flags = torch.from_numpy(flags).type(torch.cuda.LongTensor)
+
+        Xt, yt, Et = torch.from_numpy(Xt).type(torch.cuda.FloatTensor), \
+                     torch.from_numpy(yt).type(torch.cuda.LongTensor), \
+                     torch.from_numpy(Et).type(torch.cuda.LongTensor)
+
+        Xr, Xtr = torch.from_numpy(Xr).type(torch.cuda.FloatTensor), \
+                  torch.from_numpy(Xtr).type(torch.cuda.FloatTensor)
+
+    if no_decoy:
+        train, test = TensorDataset(Xr, y), TensorDataset(Xtr, yt, Et)
+        # print(f"Train set: {train.shape}")
+        # print(f"Test set: {test.shape}")
+        return DataLoader(train, batch_size, train_shuffle), DataLoader(test, batch_size, test_shuffle)
+
+    if n_expl is not None:
+        train, test = TensorDataset(X, y, E, E_hint, flags), TensorDataset(Xt, yt, Et)
+    else:
+        train, test = TensorDataset(X, y, E, E_hint), TensorDataset(Xt, yt, Et)
+
+    return DataLoader(train, batch_size, train_shuffle), DataLoader(test, batch_size, test_shuffle)
+
+
 def decoy_mnist_CE_augmented(fmnist=False, batch_size=256, device='cuda', \
     train_shuffle=False, test_shuffle=False, n_instances=-1, n_counterexamples_per_instance=1, \
         ce_strategy='random', feedback=None, flatten=False,):
@@ -505,6 +638,7 @@ def isic_2019(batch_size=16, train_shuffle=True, number_nc=None, number_c=None,\
     logging.info(f"  --> Build finished: Took {elap} sec!")
     logging.info("--------Dataset Done--------\n")
     return dataloaders, weights
+
 
 def isic_2019_hint(batch_size=16, train_shuffle=True, number_nc=None, number_c=None,\
         all_hint=False, invert_seg_hint_masks=False):

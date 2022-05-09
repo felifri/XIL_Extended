@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from rtpt import RTPT
 
-from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, MixLoss
+from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, MixLoss1, MixLoss2
 
 class Learner:
     """Implements a ML learner (based on PyTorch model)."""
@@ -82,7 +82,8 @@ class Learner:
                 # ra_loss = right answer, rr_loss = right reason 
                 train_loss, correct, ra_loss, rr_loss = 0, 0, 0, 0
                 start_time = time.time()
-                
+
+
                 for batch, data in enumerate(dataloader):
                     self.optimizer.zero_grad()
                     # functionality to disable xil_loss for n number 
@@ -127,12 +128,19 @@ class Learner:
                             expl = expl.float()
                             loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl, output)
 
-                        elif isinstance(self.loss, MixLoss):
+                        elif isinstance(self.loss, MixLoss1):
                             X, y, expl = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device)
                             X.requires_grad_()
                             output = self.model(X)
-                            expl = expl.float()
                             loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl, output, self.device)
+
+                        elif isinstance(self.loss, MixLoss2):
+                            X, y, expl_p, expl_r = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device), data[3].to(self.device)
+                            X.requires_grad_()
+                            output = self.model(X)
+                            expl_p = expl_p.float()
+                            expl_r = expl_r.float()
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device)
 
 
                         else:
@@ -154,7 +162,7 @@ class Learner:
                     correct += (output.argmax(1) == y).type(torch.float).sum().item()
 
                     # for tracking right answer and right reason loss
-                    if isinstance(self.loss, (RRRLoss, HINTLoss, CDEPLoss, RBRLoss, RRRGradCamLoss)) \
+                    if isinstance(self.loss, (RRRLoss, HINTLoss, CDEPLoss, RBRLoss, RRRGradCamLoss, MixLoss1, MixLoss2)) \
                         and (epoch) > disable_xil_loss_first_n_epochs:
                         ra_loss += ra_loss_c.item()
                         rr_loss += rr_loss_c.item()
