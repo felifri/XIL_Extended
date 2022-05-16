@@ -21,6 +21,12 @@ import os
 parser = argparse.ArgumentParser(description='XIL EVAL')
 parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'Mix1', 'Mix2'],
                     help='Which XIL method to test?')
+parser.add_argument('--rrr', default=10, type=int)
+parser.add_argument('--rbr', default=100000, type=int)
+parser.add_argument('--rrrg', default=1, type=int)
+parser.add_argument('--hint', default=100, type=int)
+
+parser.add_argument('--rr', default=None, type=float)
 parser.add_argument('--dataset', default='Mnist', type=str, choices=['Mnist','FMnist'],
                     help='Which dataset to use?')
 parser.add_argument('--run', default=0, type=int,
@@ -51,20 +57,24 @@ if args.dataset == 'Mnist':
         args.mode = 'CEL'
         loss_fn = nn.CrossEntropyLoss()
     elif args.mode == 'RRR':
-        args.reg = 10
+        # args.reg = 10
+        args.reg = args.rrr
         loss_fn = RRRLoss(args.reg)
     elif args.mode == 'RBR':
-        args.reg = 100000
-        loss_fn = RBRLoss(args.reg)
+        # args.reg = 100000
+        args.reg = args.rbr
+        loss_fn = RBRLoss(args.reg, rr_clipping=args.rr)
     elif args.mode == 'RRR-G':
-        args.reg = 1
+        # args.reg = 1
+        args.reg = args.rrrg
         loss_fn = RRRGradCamLoss(args.reg)
         args.mode = 'RRRGradCAM'
     elif args.mode == 'HINT':
         train_dataloader, val_dataloader = decoy_mnist(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, \
                                        hint_expl=True)
-        args.reg = 100
-        loss_fn = HINTLoss(args.reg, last_conv_specified=True, upsample=True)
+        # args.reg = 100
+        args.reg = args.hint
+        loss_fn = HINTLoss(args.reg, last_conv_specified=True, upsample=True, reduction='mean')
     elif args.mode == 'CE':
         train_dataloader, val_dataloader = decoy_mnist_CE_augmented(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
@@ -75,7 +85,7 @@ if args.dataset == 'Mnist':
     elif args.mode == 'Mix1':
         # Loss function combination of RRR, RBR, and RRRG
         args.reg = None
-        loss_fn = MixLoss1()
+        loss_fn = MixLoss1(regrate_rrr=args.rrr, regrate_rbr=args.rbr, regrate_rrrg=args.rrrg)
     elif args.mode == 'Mix2':
         # Loss function combination of RRRG + HINT
         train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
@@ -114,7 +124,7 @@ elif args.dataset == 'FMnist':
     elif args.mode == 'Mix1':
         # Loss function combination of RRR, RBR, and RRRG
         args.reg = None
-        loss_fn = MixLoss1()
+        loss_fn = MixLoss1(regrate_rrr=args.rrr, regrate_rbr=args.rbr, regrate_rrrg=args.rrrg)
     elif args.mode == 'Mix2':
         # Loss function combination of RRRG + HINT
         train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
@@ -126,7 +136,12 @@ elif args.dataset == 'FMnist':
 i = args.run
 util.seed_all(SEED[i])
 model = dnns.SimpleConvNet().to(DEVICE)
-MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
+if args.mode == 'RBR':
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}--rrcliping={args.rr}'
+elif args.mode == 'Mix1':
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.rbr},{args.rrrg}--seed={SEED[i]}--run={i}--rrcliping={args.rr}'
+else:
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 learner = Learner(model, loss_fn, optimizer, DEVICE, MODELNAME)
 learner.fit(train_dataloader, test_dataloader, EPOCHS, save_best=SAVE_BEST, verbose_after_n_epochs=VERBOSE_AFTER_N_EPOCHS)

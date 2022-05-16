@@ -449,7 +449,7 @@ class HINTLoss(nn.Module):
 
 class MixLoss1(nn.Module):
     def __init__(self, regularizer_rate = None, base_criterion=F.cross_entropy, \
-            rr_clipping=None, weight=None, last_conv_specified=False, reduction='sum'):
+            rr_clipping=None, weight=None, last_conv_specified=False, reduction='sum', regrate_rrr = 10, regrate_rbr = 100000, regrate_rrrg = 1):
 
         super().__init__()
         self.regularizer_rate = regularizer_rate
@@ -458,23 +458,26 @@ class MixLoss1(nn.Module):
         self.weight = weight
         self.last_conv_specified = last_conv_specified
         self.reduction = reduction
+        self.regrate_rrr = regrate_rrr
+        self.regrate_rbr = regrate_rbr
+        self.regrate_rrrg = regrate_rrrg
 
 
     def forward(self, model, X, y, expl, logits, device):
         right_answer_loss = 0
         right_reason_loss = 0
 
-        self.regularizer_rate = 10
+        self.regularizer_rate = self.regrate_rrr
         RRR = RRRLoss.forward(self, X, y, expl, logits)
         right_answer_loss += RRR[1]
         right_reason_loss += RRR[2]
 
-        self.regularizer_rate = 100000
+        self.regularizer_rate = self.regrate_rbr
         RBR = RBRLoss.forward(self, model, X, y, expl.float(), logits)
         right_answer_loss += RBR[1]
         right_reason_loss += RBR[2]
 
-        self.regularizer_rate = 1
+        self.regularizer_rate = self.regrate_rrrg
         RRRG = RRRGradCamLoss.forward(self, model, X, y, expl.float(), logits, device)
         right_answer_loss += RRRG[1]
         right_reason_loss += RRRG[2]

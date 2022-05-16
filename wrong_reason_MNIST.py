@@ -7,8 +7,8 @@ from torch.utils import data
 
 from learner.models import dnns
 from learner.learner import Learner
-from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented
-from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss
+from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented, decoy_mnist_both
+from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, MixLoss1, MixLoss2
 import util
 import explainer
 import matplotlib.pyplot as plt
@@ -19,8 +19,11 @@ import os
 # +
 # __import__("pdb").set_trace()
 parser = argparse.ArgumentParser(description='XIL EVAL')
-parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR'],
+parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'Mix1', 'Mix2'],
                     help='Which XIL method to test?')
+parser.add_argument('--rrr', default=10, type=int)
+parser.add_argument('--rbr', default=100000, type=int)
+parser.add_argument('--rrrg', default=1, type=int)
 parser.add_argument('--dataset', default='Mnist', type=str, choices=['Mnist','FMnist'],
                     help='Which dataset to use?')
 parser.add_argument('--method', default='GradCAM IG LIME', type=str, choices=['GradCAM','IG','LIME'], nargs='+', 
@@ -54,13 +57,16 @@ if args.dataset == 'Mnist':
         args.mode = 'CEL'
         loss_fn = nn.CrossEntropyLoss()
     elif args.mode == 'RRR':
-        args.reg = 10
+        # args.reg = 10
+        args.reg = args.rrr
         loss_fn = RRRLoss(args.reg)
     elif args.mode == 'RBR':
-        args.reg = 100000
+        # args.reg = 100000
+        args.reg = args.rbr
         loss_fn = RBRLoss(args.reg)
     elif args.mode == 'RRR-G':
-        args.reg = 1
+        # args.reg = 1
+        args.reg = args.rrrg
         loss_fn = RRRGradCamLoss(args.reg)
         args.mode = 'RRRGradCAM'
     elif args.mode == 'HINT':
@@ -72,6 +78,15 @@ if args.dataset == 'Mnist':
     elif args.mode == 'CDEP':
         args.reg = 1000000  
         loss_fn = CDEPLoss(args.reg)
+    elif args.mode == 'Mix1':
+        # Loss function combination of RRR, RBR, and RRRG
+        args.reg = None
+        loss_fn = MixLoss1(regrate_rrr=args.rrr, regrate_rbr=args.rbr, regrate_rrrg=args.rrrg)
+    elif args.mode == 'Mix2':
+        # Loss function combination of RRRG + HINT
+        train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss2()
         
 elif args.dataset == 'FMnist':
     train_dataloader, test_dataloader = decoy_mnist(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
@@ -105,7 +120,10 @@ avg1, avg2, avg3 = [], [], []
 i = args.run
 util.seed_all(SEED[i])
 model = dnns.SimpleConvNet().to(DEVICE)
-MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
+if args.mode == 'Mix1':
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.rbr},{args.rrrg}--seed={SEED[i]}--run={i}--rrcliping=None'
+else:
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 learner = Learner(model, loss_fn, optimizer, DEVICE, MODELNAME, load=True)
 
