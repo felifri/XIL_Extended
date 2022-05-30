@@ -490,7 +490,7 @@ class MixLoss1(nn.Module):
 
 class MixLoss2(nn.Module):
     def __init__(self, regularizer_rate=1, base_criterion=F.cross_entropy, reduction='sum',\
-        last_conv_specified=False, weight=None, rr_clipping=None, upsample=False, positive_only=False):
+        last_conv_specified=False, weight=None, rr_clipping=None, upsample=False, positive_only=False, regrate_rrrg = 1, regrate_hint = 100):
 
         super().__init__()
         self.regularizer_rate = regularizer_rate
@@ -501,17 +501,19 @@ class MixLoss2(nn.Module):
         self.reduction = reduction
         self.upsample = upsample
         self.positive_only = positive_only
+        self.regrate_rrrg = regrate_rrrg
+        self.regrate_hint = regrate_hint
 
     def forward(self, model, X, y, expl_p, expl_r, logits, device):
         right_answer_loss = 0
         right_reason_loss = 0
 
-        self.regularizer_rate = 1
+        self.regularizer_rate = self.regrate_rrrg
         RRRG = RRRGradCamLoss.forward(self, model, X, y, expl_p, logits, device)
         right_answer_loss += RRRG[1]
         right_reason_loss += RRRG[2]
 
-        self.regularizer_rate = 100
+        self.regularizer_rate = self.regrate_hint
         self.last_conv_specified = True
         self.upsample = True
         HINT = HINTLoss.forward(self, model, X, y, expl_r, logits, device)

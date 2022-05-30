@@ -1098,7 +1098,7 @@ def quantify_wrong_reason_lime_preload(model, name, foldername="output_wr_metric
             with open(foldername + name + '-' + str(mode) + '.json', 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
         
-        return avg_activation_per_instance
+        return 100*avg_activation_per_instance
 
 
 

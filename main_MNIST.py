@@ -24,9 +24,8 @@ parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla',
 parser.add_argument('--rrr', default=10, type=int)
 parser.add_argument('--rbr', default=100000, type=int)
 parser.add_argument('--rrrg', default=1, type=int)
-parser.add_argument('--hint', default=100, type=int)
+parser.add_argument('--hint', default=100, type=float)
 
-parser.add_argument('--rr', default=None, type=float)
 parser.add_argument('--dataset', default='Mnist', type=str, choices=['Mnist','FMnist'],
                     help='Which dataset to use?')
 parser.add_argument('--run', default=0, type=int,
@@ -90,7 +89,7 @@ if args.dataset == 'Mnist':
         # Loss function combination of RRRG + HINT
         train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
-        loss_fn = MixLoss2()
+        loss_fn = MixLoss2(regrate_rrrg=args.rrrg, regrate_hint=args.hint)
 
         
 elif args.dataset == 'FMnist':
@@ -112,8 +111,9 @@ elif args.dataset == 'FMnist':
     elif args.mode == 'HINT':
         train_dataloader, val_dataloader = decoy_mnist(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, \
                                                hint_expl=True)
-        args.reg = 0.00001
-        loss_fn = HINTLoss(args.reg, last_conv_specified=True, upsample=True)
+        #args.reg = 0.00001
+        args.reg = args.hint
+        loss_fn = HINTLoss(args.reg, last_conv_specified=True, upsample=True, reduction='mean')
     elif args.mode == 'CE':
         train_dataloader, val_dataloader = decoy_mnist_CE_augmented(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
@@ -129,17 +129,17 @@ elif args.dataset == 'FMnist':
         # Loss function combination of RRRG + HINT
         train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
-        loss_fn = MixLoss2()
+        loss_fn = MixLoss2(regrate_rrrg=args.rrrg, regrate_hint=args.hint)
 # -
 
 
 i = args.run
 util.seed_all(SEED[i])
 model = dnns.SimpleConvNet().to(DEVICE)
-if args.mode == 'RBR':
-    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}--rrcliping={args.rr}'
-elif args.mode == 'Mix1':
-    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.rbr},{args.rrrg}--seed={SEED[i]}--run={i}--rrcliping={args.rr}'
+if args.mode == 'Mix1':
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.rbr},{args.rrrg}--seed={SEED[i]}--run={i}'
+elif args.mode == 'Mix2':
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{args.hint}--seed={SEED[i]}--run={i}'
 else:
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
