@@ -448,6 +448,9 @@ class HINTLoss(nn.Module):
         return res, right_answer_loss, right_reason_loss
 
 class MixLoss1(nn.Module):
+    """
+    MixLoss1 = RRR + RBR + RRRG
+    """
     def __init__(self, regularizer_rate = None, base_criterion=F.cross_entropy, \
             rr_clipping=None, weight=None, last_conv_specified=False, reduction='sum', regrate_rrr = 10, regrate_rbr = 100000, regrate_rrrg = 1):
 
@@ -489,7 +492,10 @@ class MixLoss1(nn.Module):
         return res, right_answer_loss, right_reason_loss
 
 class MixLoss2(nn.Module):
-    def __init__(self, regularizer_rate=1, base_criterion=F.cross_entropy, reduction='sum',\
+    """
+        MixLoss2 = RRRG + HINT
+    """
+    def __init__(self, regularizer_rate=None, base_criterion=F.cross_entropy, reduction='sum',\
         last_conv_specified=False, weight=None, rr_clipping=None, upsample=False, positive_only=False, regrate_rrrg = 1, regrate_hint = 100):
 
         super().__init__()
@@ -512,6 +518,273 @@ class MixLoss2(nn.Module):
         RRRG = RRRGradCamLoss.forward(self, model, X, y, expl_p, logits, device)
         right_answer_loss += RRRG[1]
         right_reason_loss += RRRG[2]
+
+        self.regularizer_rate = self.regrate_hint
+        self.last_conv_specified = True
+        self.upsample = True
+        HINT = HINTLoss.forward(self, model, X, y, expl_r, logits, device)
+        right_answer_loss += HINT[1]
+        right_reason_loss += HINT[2][0]
+
+        right_answer_loss /= 2
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss3(nn.Module):
+    """
+        MixLoss3 = RRR + CDEP
+    """
+    def __init__(self, regularizer_rate=None, base_criterion=F.cross_entropy, weight=None, \
+                 model_type='mnist', rr_clipping=None, regrate_rrr = 10, regrate_cdep = 1000000):
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.rr_clipping = rr_clipping  # good rate for decoy mnist 1.0
+        self.weight = weight
+        self.model_type = model_type
+        self.regrate_rrr = regrate_rrr
+        self.regrate_cdep = regrate_cdep
+
+    def forward(self, model, X, y, expl, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        self.regularizer_rate = self.regrate_rrr
+        RRR = RRRLoss.forward(self, X, y, expl, logits)
+        right_answer_loss += RRR[1]
+        right_reason_loss += RRR[2]
+
+        self.regularizer_rate = self.regrate_cdep
+        CDEP = CDEPLoss.forward(self, model, X, y, expl.float(), logits, device)
+        right_answer_loss += CDEP[1]
+        right_reason_loss += CDEP[2][0]
+
+        right_answer_loss /= 2
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss4(nn.Module):
+    """
+        MixLoss4 = RRR + RBR
+    """
+
+    def __init__(self, regularizer_rate=None, base_criterion=F.cross_entropy, \
+                 rr_clipping=None, weight=None, regrate_rrr=10,
+                 regrate_rbr=100000):
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.rr_clipping = rr_clipping  # good rate for decoy mnist 1.0
+        self.weight = weight
+        self.regrate_rrr = regrate_rrr
+        self.regrate_rbr = regrate_rbr
+
+    def forward(self, model, X, y, expl, logits):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        self.regularizer_rate = self.regrate_rrr
+        RRR = RRRLoss.forward(self, X, y, expl, logits)
+        right_answer_loss += RRR[1]
+        right_reason_loss += RRR[2]
+
+        self.regularizer_rate = self.regrate_rbr
+        RBR = RBRLoss.forward(self, model, X, y, expl.float(), logits)
+        right_answer_loss += RBR[1]
+        right_reason_loss += RBR[2]
+
+        right_answer_loss /= 2
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss5(nn.Module):
+    """
+        MixLoss5 = RBR + CDEP
+    """
+    def __init__(self, regularizer_rate=None, base_criterion=F.cross_entropy, weight=None, \
+                 model_type='mnist', rr_clipping=None, regrate_rbr = 100000, regrate_cdep = 1000000):
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.rr_clipping = rr_clipping  # good rate for decoy mnist 1.0
+        self.weight = weight
+        self.model_type = model_type
+        self.regrate_rbr = regrate_rbr
+        self.regrate_cdep = regrate_cdep
+
+    def forward(self, model, X, y, expl, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        self.regularizer_rate = self.regrate_rbr
+        RBR = RBRLoss.forward(self, model, X, y, expl.float(), logits)
+        right_answer_loss += RBR[1]
+        right_reason_loss += RBR[2]
+
+        self.regularizer_rate = self.regrate_cdep
+        CDEP = CDEPLoss.forward(self, model, X, y, expl.float(), logits, device)
+        right_answer_loss += CDEP[1]
+        right_reason_loss += CDEP[2][0]
+
+        right_answer_loss /= 2
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss6(nn.Module):
+    """
+        MixLoss6 = RRRG + CDEP
+    """
+    def __init__(self, regularizer_rate=None, base_criterion=F.cross_entropy, reduction='sum', \
+                 last_conv_specified=False, weight=None, rr_clipping=None, model_type='mnist', regrate_rrrg = 1, regrate_cdep = 1000000):
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.reduction = reduction
+        self.last_conv_specified = last_conv_specified
+        self.weight = weight
+        self.rr_clipping = rr_clipping
+        self.model_type = model_type
+        self.regrate_rrrg = regrate_rrrg
+        self.regrate_cdep = regrate_cdep
+
+    def forward(self, model, X, y, expl, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        self.regularizer_rate = self.regrate_rrrg
+        RRRG = RRRGradCamLoss.forward(self, model, X, y, expl.float(), logits, device)
+        right_answer_loss += RRRG[1]
+        right_reason_loss += RRRG[2]
+
+        self.regularizer_rate = self.regrate_cdep
+        CDEP = CDEPLoss.forward(self, model, X, y, expl.float(), logits, device)
+        right_answer_loss += CDEP[1]
+        right_reason_loss += CDEP[2][0]
+
+        right_answer_loss /= 2
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss7(nn.Module):
+    """
+        MixLoss7 = CDEP + HINT
+    """
+    def __init__(self, regularizer_rate=None, base_criterion=F.cross_entropy, reduction='sum', model_type='mnist',\
+        last_conv_specified=False, weight=None, rr_clipping=None, upsample=False, positive_only=False, regrate_cdep = 1000000, regrate_hint = 100):
+
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.rr_clipping = rr_clipping # good rate for decoy mnist 1.0
+        self.weight = weight
+        self.last_conv_specified = last_conv_specified
+        self.reduction = reduction
+        self.upsample = upsample
+        self.model_type = model_type
+        self.positive_only = positive_only
+        self.regrate_cdep = regrate_cdep
+        self.regrate_hint = regrate_hint
+
+    def forward(self, model, X, y, expl_p, expl_r, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        self.regularizer_rate = self.regrate_cdep
+        CDEP = CDEPLoss.forward(self, model, X, y, expl_p, logits, device)
+        right_answer_loss += CDEP[1]
+        right_reason_loss += CDEP[2][0]
+
+        self.regularizer_rate = self.regrate_hint
+        self.last_conv_specified = True
+        self.upsample = True
+        HINT = HINTLoss.forward(self, model, X, y, expl_r, logits, device)
+        right_answer_loss += HINT[1]
+        right_reason_loss += HINT[2][0]
+
+        right_answer_loss /= 2
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss8(nn.Module):
+    """
+        MixLoss8 = RRR + HINT
+    """
+    def __init__(self, regularizer_rate=None, base_criterion=F.cross_entropy, reduction='sum',\
+        last_conv_specified=False, weight=None, rr_clipping=None, upsample=False, positive_only=False, regrate_rrr = 10, regrate_hint = 100):
+
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.rr_clipping = rr_clipping # good rate for decoy mnist 1.0
+        self.weight = weight
+        self.last_conv_specified = last_conv_specified
+        self.reduction = reduction
+        self.upsample = upsample
+        self.positive_only = positive_only
+        self.regrate_rrr = regrate_rrr
+        self.regrate_hint = regrate_hint
+
+    def forward(self, model, X, y, expl_p, expl_r, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        self.regularizer_rate = self.regrate_rrr
+        RRR = RRRLoss.forward(self, X, y, expl_p, logits)
+        right_answer_loss += RRR[1]
+        right_reason_loss += RRR[2]
+
+        self.regularizer_rate = self.regrate_hint
+        self.last_conv_specified = True
+        self.upsample = True
+        HINT = HINTLoss.forward(self, model, X, y, expl_r, logits, device)
+        right_answer_loss += HINT[1]
+        right_reason_loss += HINT[2][0]
+
+        right_answer_loss /= 2
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss9(nn.Module):
+    """
+        MixLoss9 = RBR + HINT
+    """
+    def __init__(self, regularizer_rate=None, base_criterion=F.cross_entropy, reduction='sum',\
+        last_conv_specified=False, weight=None, rr_clipping=None, upsample=False, positive_only=False, regrate_rbr = 100000, regrate_hint = 100):
+
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.rr_clipping = rr_clipping # good rate for decoy mnist 1.0
+        self.weight = weight
+        self.last_conv_specified = last_conv_specified
+        self.reduction = reduction
+        self.upsample = upsample
+        self.positive_only = positive_only
+        self.regrate_rbr = regrate_rbr
+        self.regrate_hint = regrate_hint
+
+    def forward(self, model, X, y, expl_p, expl_r, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        self.regularizer_rate = self.regrate_rbr
+        RBR = RBRLoss.forward(self, model, X, y, expl_p, logits)
+        right_answer_loss += RBR[1]
+        right_reason_loss += RBR[2]
 
         self.regularizer_rate = self.regrate_hint
         self.last_conv_specified = True

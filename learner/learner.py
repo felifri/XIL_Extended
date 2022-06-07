@@ -13,7 +13,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from rtpt import RTPT
 
-from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, MixLoss1, MixLoss2
+from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, MixLoss1, MixLoss2, MixLoss3, \
+    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss9
 
 class Learner:
     """Implements a ML learner (based on PyTorch model)."""
@@ -141,6 +142,46 @@ class Learner:
                             expl_p = expl_p.float()
                             expl_r = expl_r.float()
                             loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device)
+                        elif isinstance(self.loss, MixLoss3):
+                            X, y, expl = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device)
+                            X.requires_grad_()
+                            output = self.model(X)
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl, output, self.device)
+                        elif isinstance(self.loss, MixLoss4):
+                            X, y, expl = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device)
+                            X.requires_grad_()
+                            output = self.model(X)
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl, output)
+                        elif isinstance(self.loss, MixLoss5):
+                            X, y, expl = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device)
+                            X.requires_grad_()
+                            output = self.model(X)
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl, output, self.device)
+                        elif isinstance(self.loss, MixLoss6):
+                            X, y, expl = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device)
+                            X.requires_grad_()
+                            output = self.model(X)
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl, output, self.device)
+                        elif isinstance(self.loss, MixLoss7):
+                            X, y, expl_p, expl_r = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device), data[3].to(self.device)
+                            X.requires_grad_()
+                            output = self.model(X)
+                            expl_p = expl_p.float()
+                            expl_r = expl_r.float()
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device)
+                        elif isinstance(self.loss, MixLoss8):
+                            X, y, expl_p, expl_r = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device), data[3].to(self.device)
+                            X.requires_grad_()
+                            output = self.model(X)
+                            expl_r = expl_r.float()
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device)
+                        elif isinstance(self.loss, MixLoss9):
+                            X, y, expl_p, expl_r = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device), data[3].to(self.device)
+                            X.requires_grad_()
+                            output = self.model(X)
+                            expl_p = expl_p.float()
+                            expl_r = expl_r.float()
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device)
 
 
                         else:
@@ -162,7 +203,8 @@ class Learner:
                     correct += (output.argmax(1) == y).type(torch.float).sum().item()
 
                     # for tracking right answer and right reason loss
-                    if isinstance(self.loss, (RRRLoss, HINTLoss, CDEPLoss, RBRLoss, RRRGradCamLoss, MixLoss1, MixLoss2)) \
+                    if isinstance(self.loss, (RRRLoss, HINTLoss, CDEPLoss, RBRLoss, RRRGradCamLoss, MixLoss1, MixLoss2, \
+                                              MixLoss3, MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss9)) \
                         and (epoch) > disable_xil_loss_first_n_epochs:
                         ra_loss += ra_loss_c.item()
                         rr_loss += rr_loss_c.item()

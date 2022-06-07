@@ -27,7 +27,7 @@ def explain_with_captum(method, model, dataloader, index_list, sign='positive', 
         dataloader: pytorch dataloader (images, labels, _ ).
         index_list: list of indices for the images you want to explain. Takes the specified
             indices from the first batch of the dataloader (batchsize needs to be bigger 
-            than the lenght of the specified indices.
+            than the length of the specified indices.
         sign: specifies which attributions should be visualized. Either 'positive', 'negative',
             'absolute_value', 'all'. (see captum library viz.visualize_image_attr()).
         next_to_each_other: if True then plots one figure with the original image left and the 
@@ -139,11 +139,11 @@ def explain_with_ig(model, dataloader, index_list, sign='positive', \
         dataloader: torch dataloader with stored batches (X, y, expl), expl is optional
         index_list: list of indices for the images you want to explain. Takes the specified
             indices from the first batch of the dataloader (batchsize needs to be bigger 
-            than the lenght of the specified indices. 
+            than the length of the specified indices.
         sign: specifies which attributions should be visualized. Either 'positive', 'negative',
             'absolute_value', 'all'. (see captum library viz.visualize_image_attr()).
         next_to_each_other: if True then plots one figure with the original image left and the 
-            heatmap on the right side. If False then plot two seperate plots for org. images
+            heatmap on the right side. If False then plot two separate plots for org. images
             and corresponding heatmaps.
         save_name: if specified the resulting plot will be saved to output_images folder and not
             be printed.  
