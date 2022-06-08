@@ -8,7 +8,7 @@ from torch.utils import data
 from learner.models import dnns
 from learner.learner import Learner
 from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented, decoy_mnist_both
-from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, MixLoss1, MixLoss2, MixLoss3, \
+from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, HINTLoss_IG, MixLoss1, MixLoss2, MixLoss3, \
     MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss9
 import util
 import explainer
@@ -20,7 +20,7 @@ import os
 # +
 # __import__("pdb").set_trace()
 parser = argparse.ArgumentParser(description='XIL EVAL')
-parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', \
+parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'HINT_IG',\
                                                                       'Mix1', 'Mix2', 'Mix3', 'Mix4', 'Mix5', 'Mix6', 'Mix7',\
                                                                       'Mix8', 'Mix9'],
                     help='Which XIL method to test?')
@@ -28,6 +28,7 @@ parser.add_argument('--rrr', default=10, type=int)
 parser.add_argument('--rbr', default=100000, type=int)
 parser.add_argument('--rrrg', default=1, type=int)
 parser.add_argument('--hint', default=100, type=float)
+parser.add_argument('--hint_ig', default=100, type=int)
 parser.add_argument('--cdep', default=1000000, type=int)
 
 parser.add_argument('--dataset', default='Mnist', type=str, choices=['Mnist','FMnist'],
@@ -78,6 +79,12 @@ if args.dataset == 'Mnist':
         # args.reg = 100
         args.reg = args.hint
         loss_fn = HINTLoss(args.reg, last_conv_specified=True, upsample=True, reduction='mean')
+    elif args.mode == 'HINT_IG':
+        train_dataloader, val_dataloader = decoy_mnist(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, \
+                                       hint_expl=True)
+        # args.reg = 100
+        args.reg = args.hint_ig
+        loss_fn = HINTLoss_IG(args.reg, reduction='mean')
     elif args.mode == 'CE':
         train_dataloader, val_dataloader = decoy_mnist_CE_augmented(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None

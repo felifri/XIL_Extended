@@ -756,6 +756,7 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
                 elif mode == 'median':
                     scores = torch.median(norm_attr.view(norm_attr.size(0), -1), dim=1)[0]
                 actScores += scores.tolist()
+                print(" !!!!!! SCORES = " + str(scores))
 
 
     if number_instances != len(actScores):
