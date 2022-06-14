@@ -32,7 +32,8 @@ parser.add_argument('--hint_ig', default=100, type=float)
 parser.add_argument('--cdep', default=1000000, type=int)
 parser.add_argument('--dataset', default='Mnist', type=str, choices=['Mnist','FMnist'],
                     help='Which dataset to use?')
-parser.add_argument('--method', default='GradCAM IG LIME', type=str, choices=['GradCAM','IG','LIME'], nargs='+',
+parser.add_argument('--method', default='GradCAM IG LIME Saliency IxG DeepLift DeepLiftShap GBP', type=str, choices=['GradCAM','IG','LIME','Saliency',\
+                                                                                                                 'IxG','DeepLift','DeepLiftShap','GBP','LRP'], nargs='+',
                     help='Which explainer to use?')
 parser.add_argument('--run', default=0, type=int,
                     help='Which seed?')
@@ -194,7 +195,8 @@ elif args.dataset == 'FMnist':
 
 
 # +
-avg1, avg2, avg3 = [], [], []
+avg1, avg2, avg3, avg4, avg5, avg6, avg8 = [], [], [], [], [], [], []
+avg7 = []
 # i = args.run
 # util.seed_all(SEED[i])
 # model = dnns.SimpleConvNet().to(DEVICE)
@@ -281,6 +283,67 @@ for i in range(5):
                                                     name=f'{args.mode}-grad', \
                                                     threshold=thresh, flags=False, device=DEVICE))
 
+    if 'Saliency' in args.method:
+        os.makedirs(f'output_images/{args.dataset}-expl/{args.mode}_saliency/', exist_ok=True)
+        explainer.explain_with_captum('saliency', learner.model, test_dataloader, range(len(test_dataloader)), \
+                                      next_to_each_other=False,
+                                      save_name=f'{args.dataset}-expl/{args.mode}_saliency/{args.dataset}-{args.mode}-test-wp-grad')
+        thresh = explainer.quantify_wrong_reason('saliency', test_dataloader, learner.model, mode='mean',
+                                                 name=f'{args.mode}-saliency', \
+                                                 threshold=None, flags=False, device=DEVICE)
+        avg4.append(explainer.quantify_wrong_reason('saliency', test_dataloader, learner.model, mode='mean',
+                                                    name=f'{args.mode}-saliency', \
+                                                    threshold=thresh, flags=False, device=DEVICE))
+
+    if 'IxG' in args.method:
+        os.makedirs(f'output_images/{args.dataset}-expl/{args.mode}_input_x_gradient/', exist_ok=True)
+        explainer.explain_with_captum('input_x_gradient', learner.model, test_dataloader, range(len(test_dataloader)), \
+                                      next_to_each_other=False,
+                                      save_name=f'{args.dataset}-expl/{args.mode}_input_x_gradient/{args.dataset}-{args.mode}-test-wp-grad')
+        thresh = explainer.quantify_wrong_reason('input_x_gradient', test_dataloader, learner.model, mode='mean',
+                                                 name=f'{args.mode}-input_x_gradient', \
+                                                 threshold=None, flags=False, device=DEVICE)
+        avg5.append(explainer.quantify_wrong_reason('input_x_gradient', test_dataloader, learner.model, mode='mean',
+                                                    name=f'{args.mode}-input_x_gradient', \
+                                                    threshold=thresh, flags=False, device=DEVICE))
+
+    if 'DeepLift' in args.method:
+        os.makedirs(f'output_images/{args.dataset}-expl/{args.mode}_deep_lift/', exist_ok=True)
+        explainer.explain_with_captum('deep_lift', learner.model, test_dataloader, range(len(test_dataloader)), \
+                                      next_to_each_other=False,
+                                      save_name=f'{args.dataset}-expl/{args.mode}_deep_lift/{args.dataset}-{args.mode}-test-wp-grad')
+        thresh = explainer.quantify_wrong_reason('deep_lift', test_dataloader, learner.model, mode='mean',
+                                                 name=f'{args.mode}-deep_lift', \
+                                                 threshold=None, flags=False, device=DEVICE)
+        avg6.append(explainer.quantify_wrong_reason('deep_lift', test_dataloader, learner.model, mode='mean',
+                                                    name=f'{args.mode}-deep_lift', \
+                                                    threshold=thresh, flags=False, device=DEVICE))
+
+    # if 'DeepLiftShap' in args.method:
+    #     os.makedirs(f'output_images/{args.dataset}-expl/{args.mode}_deep_lift_shap/', exist_ok=True)
+    #     explainer.explain_with_captum('deep_lift_shap', learner.model, test_dataloader, range(len(test_dataloader)), \
+    #                                   next_to_each_other=False,
+    #                                   save_name=f'{args.dataset}-expl/{args.mode}_deep_lift_shap/{args.dataset}-{args.mode}-test-wp-grad')
+    #     thresh = explainer.quantify_wrong_reason('deep_lift_shap', test_dataloader, learner.model, mode='mean',
+    #                                              name=f'{args.mode}-deep_lift_shap', \
+    #                                              threshold=None, flags=False, device=DEVICE)
+    #     avg7.append(explainer.quantify_wrong_reason('deep_lift_shap', test_dataloader, learner.model, mode='mean',
+    #                                                 name=f'{args.mode}-deep_lift_shap', \
+    #                                                 threshold=thresh, flags=False, device=DEVICE))
+
+    if 'GBP' in args.method:
+        os.makedirs(f'output_images/{args.dataset}-expl/{args.mode}_guided_backprop/', exist_ok=True)
+        explainer.explain_with_captum('guided_backprop', learner.model, test_dataloader, range(len(test_dataloader)), \
+                                      next_to_each_other=False,
+                                      save_name=f'{args.dataset}-expl/{args.mode}_guided_backprop/{args.dataset}-{args.mode}-test-wp-grad')
+        thresh = explainer.quantify_wrong_reason('guided_backprop', test_dataloader, learner.model, mode='mean',
+                                                 name=f'{args.mode}-guided_backprop', \
+                                                 threshold=None, flags=False, device=DEVICE)
+        avg8.append(explainer.quantify_wrong_reason('guided_backprop', test_dataloader, learner.model, mode='mean',
+                                                    name=f'{args.mode}-guided_backprop', \
+                                                    threshold=thresh, flags=False, device=DEVICE))
+
+
     if 'IG' in args.method:
         os.makedirs(f'output_images/{args.dataset}-expl/{args.mode}_ig/', exist_ok=True)
         explainer.explain_with_ig(learner.model, test_dataloader, range(len(test_dataloader)), \
@@ -336,5 +399,10 @@ else:
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}.txt", "w")
 f.write(f'Grad P: mean:{np.mean(avg1)}, std:{np.std(avg1)}\n '
         f'IG P: mean:{np.mean(avg2)}, std:{np.std(avg2)}\n '
-        f'LIME P: mean:{np.mean(avg3)}, std:{np.std(avg3)}\n ')
+        f'LIME P: mean:{np.mean(avg3)}, std:{np.std(avg3)}\n '
+        f'Saliency P: mean:{np.mean(avg4)}, std:{np.std(avg4)}\n'
+        f'IxG P: mean:{np.mean(avg5)}, std:{np.std(avg5)}\n'
+        f'DL P: mean:{np.mean(avg6)}, std:{np.std(avg6)}\n'
+        # f'DLS P: mean:{np.mean(avg7)}, std:{np.std(avg7)}\n'
+        f'GBP P: mean:{np.mean(avg8)}, std:{np.std(avg8)}\n')
 f.close()

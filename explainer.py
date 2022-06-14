@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 from torchvision import transforms
-from captum.attr import LayerGradCam, LayerAttribution, Saliency, \
-    InputXGradient, IntegratedGradients
+from captum.attr import LayerGradCam, LayerAttribution, Saliency, DeepLift, DeepLiftShap,\
+    InputXGradient, IntegratedGradients, GuidedBackprop
 from lime import lime_image
 from skimage.color import gray2rgb
 from tqdm import tqdm
@@ -75,6 +75,22 @@ def explain_with_captum(method, model, dataloader, index_list, sign='positive', 
             attr = grad_cam.attribute(img, target=predicted.item(), relu_attributions=True)
             h, w = img.shape[2], img.shape[3]
             attr = LayerAttribution.interpolate(attr, (h, w))
+
+        elif method == 'deep_lift':
+            dl = DeepLift(model)
+            attr = dl.attribute(img, target=predicted.item())
+
+        # elif method == 'deep_lift_shap':
+        #     dls = DeepLiftShap(model)
+        #     attr = dls.attribute(img, target=predicted.item())
+
+        # elif method == 'lrp':
+        #     lrp = LRP(model)
+        #     attr = lrp.attribute(img, target=predicted.item())
+
+        elif method == 'guided_backprop':
+            gbp = GuidedBackprop(model)
+            attr = gbp.attribute(img, target=predicted.item())
        
         elif method == 'integrated_gradients':
             intgrad = IntegratedGradients(model)
@@ -693,9 +709,10 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
             images_t.requires_grad_()
             logits = model(images_t)
             h, w = images_t.shape[2], images_t.shape[3]
+            _, predicted = torch.max(F.softmax(logits, dim=1), 1)
 
             if method == 'grad_cam':
-                _, predicted = torch.max(F.softmax(logits, dim=1), 1)
+                # _, predicted = torch.max(F.softmax(logits, dim=1), 1)
                 # network importance score --> compute GradCam attribution of last conv layer
                 last_conv_layer = util.get_last_conv_layer(model)
                 explainer = LayerGradCam(model, last_conv_layer)
@@ -703,6 +720,30 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
                 # upsample attr
                 attr = LayerAttribution.interpolate(attr, (h, w))
                 # attr.shape => (n,1,h,w)
+
+            elif method == 'saliency':
+                sal = Saliency(model)
+                attr = sal.attribute(images_t, target=predicted)
+
+            elif method == 'input_x_gradient':
+                ixg = InputXGradient(model)
+                attr = ixg.attribute(images_t, target=predicted)
+
+            elif method == 'deep_lift':
+                dl = DeepLift(model)
+                attr = dl.attribute(images_t, target=predicted)
+
+            # elif method == 'deep_lift_shap':
+            #     dls = DeepLiftShap(model)
+            #     attr = dls.attribute(images_t, target=predicted)
+
+            elif method == 'guided_backprop':
+                gbp = GuidedBackprop(model)
+                attr = gbp.attribute(images_t, target=predicted)
+
+            # elif method == 'lrp':
+            #     lrp = LRP(model)
+            #     attr = lrp.attribute(images_t, target=predicted)
 
             elif method == 'ig_ross':
                 model.zero_grad()
