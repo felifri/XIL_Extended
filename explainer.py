@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 from torchvision import transforms
-from captum.attr import LayerGradCam, LayerAttribution, Saliency, DeepLift, DeepLiftShap,\
-    InputXGradient, IntegratedGradients, GuidedBackprop
+from captum.attr import LayerGradCam, LayerAttribution, Saliency, DeepLift,\
+    InputXGradient, IntegratedGradients, GuidedBackprop, LRP
 from lime import lime_image
 from skimage.color import gray2rgb
 from tqdm import tqdm
@@ -80,13 +80,9 @@ def explain_with_captum(method, model, dataloader, index_list, sign='positive', 
             dl = DeepLift(model)
             attr = dl.attribute(img, target=predicted.item())
 
-        # elif method == 'deep_lift_shap':
-        #     dls = DeepLiftShap(model)
-        #     attr = dls.attribute(img, target=predicted.item())
-
-        # elif method == 'lrp':
-        #     lrp = LRP(model)
-        #     attr = lrp.attribute(img, target=predicted.item())
+        elif method == 'lrp':
+            lrp = LRP(model)
+            attr = lrp.attribute(img, target=predicted.item())
 
         elif method == 'guided_backprop':
             gbp = GuidedBackprop(model)
@@ -733,17 +729,13 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
                 dl = DeepLift(model)
                 attr = dl.attribute(images_t, target=predicted)
 
-            # elif method == 'deep_lift_shap':
-            #     dls = DeepLiftShap(model)
-            #     attr = dls.attribute(images_t, target=predicted)
-
             elif method == 'guided_backprop':
                 gbp = GuidedBackprop(model)
                 attr = gbp.attribute(images_t, target=predicted)
 
-            # elif method == 'lrp':
-            #     lrp = LRP(model)
-            #     attr = lrp.attribute(images_t, target=predicted)
+            elif method == 'lrp':
+                lrp = LRP(model)
+                attr = lrp.attribute(images_t, target=predicted)
 
             elif method == 'ig_ross':
                 model.zero_grad()
