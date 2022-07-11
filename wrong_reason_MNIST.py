@@ -9,7 +9,7 @@ from learner.models import dnns
 from learner.learner import Learner
 from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented, decoy_mnist_both
 from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, HINTLoss_IG, RBRLoss, MixLoss1, MixLoss2, MixLoss3, \
-    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9
+    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13
 import util
 import explainer
 import matplotlib.pyplot as plt
@@ -21,8 +21,8 @@ import os
 # __import__("pdb").set_trace()
 parser = argparse.ArgumentParser(description='XIL EVAL')
 parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'HINT_IG',\
-                                                                      'Mix1', 'Mix2', 'Mix2ext', 'Mix3', 'Mix4', 'Mix5', 'Mix6', 'Mix7', 'Mix7ext',\
-                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix9ext'],
+                                                                      'Mix1', 'Mix2', 'Mix3', 'Mix4', 'Mix5', 'Mix6', 'Mix7',\
+                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13'],
                     help='Which XIL method to test?')
 parser.add_argument('--rrr', default=10, type=int)
 parser.add_argument('--rbr', default=100000, type=int)
@@ -70,7 +70,7 @@ if args.dataset == 'Mnist':
     elif args.mode == 'RBR':
         # args.reg = 100000
         args.reg = args.rbr
-        loss_fn = RBRLoss(args.reg, rr_clipping=args.rr)
+        loss_fn = RBRLoss(args.reg)
     elif args.mode == 'RRR-G':
         # args.reg = 1
         args.reg = args.rrrg
@@ -105,11 +105,6 @@ if args.dataset == 'Mnist':
         train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
         loss_fn = MixLoss2(regrate_rrrg=args.rrrg, regrate_hint=args.hint)
-    # elif args.mode == 'Mix2ext':
-    #     # Loss function combination of RRRG and HINT_IG
-    #     train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-    #     args.reg = None
-    #     loss_fn = MixLoss2_ext(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
     elif args.mode == 'Mix3':
         # Loss function combination of RRR and CDEP
         args.reg = None
@@ -131,11 +126,6 @@ if args.dataset == 'Mnist':
         train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
         loss_fn = MixLoss7(regrate_cdep=args.cdep, regrate_hint=args.hint)
-    # elif args.mode == 'Mix7ext':
-    #     # Loss function combination of CDEP and HINT_IG
-    #     train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-    #     args.reg = None
-    #     loss_fn = MixLoss7_ext(regrate_cdep=args.cdep, regrate_hint_ig=args.hint_ig)
     elif args.mode == 'Mix8':
         # Loss function combination of RRR and HINT
         train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
@@ -151,11 +141,21 @@ if args.dataset == 'Mnist':
         train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
         loss_fn = MixLoss9(regrate_rbr=args.rbr, regrate_hint=args.hint)
-    # elif args.mode == 'Mix9ext':
-    #     # Loss function combination of RBR and HINT
-    #     train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-    #     args.reg = None
-    #     loss_fn = MixLoss9_ext(regrate_rbr=args.rbr, regrate_hint_ig=args.hint_ig)
+    elif args.mode == 'Mix11':
+        # Loss function combination of RBR and HINT
+        train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss11(regrate_rbr=args.rbr, regrate_hint_ig=args.hint_ig)
+    elif args.mode == 'Mix12':
+        # Loss function combination of CDEP and HINT_IG
+        train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss12(regrate_cdep=args.cdep, regrate_hint_ig=args.hint_ig)
+    elif args.mode == 'Mix13':
+        # Loss function combination of RRRG and HINT_IG
+        train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss13(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
 
         
 elif args.dataset == 'FMnist':
@@ -192,6 +192,57 @@ elif args.dataset == 'FMnist':
         train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
         loss_fn = MixLoss2(regrate_rrrg=args.rrrg, regrate_hint=args.hint)
+    elif args.mode == 'Mix3':
+        # Loss function combination of RRR and CDEP
+        args.reg = None
+        loss_fn = MixLoss3(regrate_rrr=args.rrr, regrate_cdep=args.cdep)
+    elif args.mode == 'Mix4':
+        # Loss function combination of RRR and RBR
+        args.reg = None
+        loss_fn = MixLoss4(regrate_rrr=args.rrr, regrate_rbr=args.rbr)
+    elif args.mode == 'Mix5':
+        # Loss function combination of RBR and CDEP
+        args.reg = None
+        loss_fn = MixLoss5(regrate_rbr=args.rbr, regrate_cdep=args.cdep)
+    elif args.mode == 'Mix6':
+        # Loss function combination of RRRG and CDEP
+        args.reg = None
+        loss_fn = MixLoss6(regrate_rrrg=args.rrrg, regrate_cdep=args.cdep)
+    elif args.mode == 'Mix7':
+        # Loss function combination of CDEP and HINT
+        train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss7(regrate_cdep=args.cdep, regrate_hint=args.hint)
+    elif args.mode == 'Mix8':
+        # Loss function combination of RRR and HINT
+        train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss8(regrate_rrr=args.rrr, regrate_hint=args.hint)
+    elif args.mode == 'Mix8ext':
+        # Loss function combination of RRR and HINT_IG
+        train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss8_ext(regrate_rrr=args.rrr, regrate_hint_ig=args.hint_ig)
+    elif args.mode == 'Mix9':
+        # Loss function combination of RBR and HINT
+        train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss9(regrate_rbr=args.rbr, regrate_hint=args.hint)
+    elif args.mode == 'Mix11':
+        # Loss function combination of RBR and HINT
+        train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss11(regrate_rbr=args.rbr, regrate_hint_ig=args.hint_ig)
+    elif args.mode == 'Mix12':
+        # Loss function combination of CDEP and HINT_IG
+        train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss12(regrate_cdep=args.cdep, regrate_hint_ig=args.hint_ig)
+    elif args.mode == 'Mix13':
+        # Loss function combination of RRRG and HINT_IG
+        train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = None
+        loss_fn = MixLoss13(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
 
 
 # +
@@ -236,14 +287,14 @@ avg1, avg2, avg3, avg4, avg5, avg6, avg7, avg8 = [], [], [], [], [], [], [], []
 #         threshold=thresh, device=DEVICE, batch_size=BATCH_SIZE))
 
 for i in range(5):
+    # if args.mode == 'RRRGradCAM':
+    #     SEED = [1, 2, 3, 4, 5]
     util.seed_all(SEED[i])
     model = dnns.SimpleConvNet().to(DEVICE)
     if args.mode == 'Mix1':
         MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.rbr},{args.rrrg}--seed={SEED[i]}--run={i}'
     elif args.mode == 'Mix2':
         MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{int(args.hint)}--seed={SEED[i]}--run={i}'
-    # elif args.mode == 'Mix2ext':
-    #     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{args.hint_ig}--seed={SEED[i]}--run={i}'
     elif args.mode == 'Mix3':
         MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.cdep}--seed={SEED[i]}--run={i}'
     elif args.mode == 'Mix4':
@@ -254,16 +305,18 @@ for i in range(5):
         MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{args.cdep}--seed={SEED[i]}--run={i}'
     elif args.mode == 'Mix7':
         MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.cdep},{int(args.hint)}--seed={SEED[i]}--run={i}'
-    # elif args.mode == 'Mix7ext':
-    #     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.cdep},{args.hint_ig}--seed={SEED[i]}--run={i}'
     elif args.mode == 'Mix8':
         MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{int(args.hint)}--seed={SEED[i]}--run={i}'
     elif args.mode == 'Mix8ext':
         MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.hint_ig}--seed={SEED[i]}--run={i}'
     elif args.mode == 'Mix9':
         MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rbr},{int(args.hint)}--seed={SEED[i]}--run={i}'
-    # elif args.mode == 'Mix9ext':
-    #     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rbr},{args.hint_ig}--seed={SEED[i]}--run={i}'
+    elif args.mode == 'Mix11':
+        MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rbr},{args.hint_ig}--seed={SEED[i]}--run={i}'
+    elif args.mode == 'Mix12':
+        MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.cdep},{args.hint_ig}--seed={SEED[i]}--run={i}'
+    elif args.mode == 'Mix13':
+        MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{args.hint_ig}--seed={SEED[i]}--run={i}'
     else:
         MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
 
@@ -372,8 +425,6 @@ if args.mode == 'Mix1':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrr}-{args.rbr}-{args.rrrg}.txt", "w")
 elif args.mode == 'Mix2':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrrg}-{int(args.hint)}.txt", "w")
-# elif args.mode == 'Mix2ext':
-#     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrrg}-{args.hint_ig}.txt", "w")
 elif args.mode == 'Mix3':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrr}-{args.cdep}.txt", "w")
 elif args.mode == 'Mix4':
@@ -384,16 +435,18 @@ elif args.mode == 'Mix6':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrrg}-{args.cdep}.txt", "w")
 elif args.mode == 'Mix7':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.cdep}-{int(args.hint)}.txt", "w")
-# elif args.mode == 'Mix7ext':
-#     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.cdep}-{args.hint_ig}.txt", "w")
 elif args.mode == 'Mix8':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrr}-{int(args.hint)}.txt", "w")
 elif args.mode == 'Mix8ext':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrr}-{args.hint_ig}.txt", "w")
 elif args.mode == 'Mix9':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rbr}-{int(args.hint)}.txt", "w")
-# elif args.mode == 'Mix9ext':
-#     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rbr}-{args.hint_ig}.txt", "w")
+elif args.mode == 'Mix11':
+    f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rbr}-{args.hint_ig}.txt", "w")
+elif args.mode == 'Mix12':
+    f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.cdep}-{args.hint_ig}.txt", "w")
+elif args.mode == 'Mix13':
+    f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrrg}-{args.hint_ig}.txt", "w")
 else:
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}.txt", "w")
 f.write(f'Grad P: mean:{np.mean(avg1)}, std:{np.std(avg1)}\n'
