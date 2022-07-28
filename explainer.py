@@ -782,6 +782,7 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
 
                 actScore = torch.div(attr_ca, attr_max)
                 actScores += actScore.tolist()
+                # print("actScore " + str(actScore))
 
             else: # calc median/mean
                 if mode == 'mean':
@@ -789,7 +790,9 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
                 elif mode == 'median':
                     scores = torch.median(norm_attr.view(norm_attr.size(0), -1), dim=1)[0]
                 actScores += scores.tolist()
-                # print(" !!!!!! SCORES = " + str(scores))
+            #     print("scores " + str(scores))
+            # print(" !!!!!! SCORES = " + str(actScores))
+            # check if list item in actScores equal to 'BATCH_SIZE'
 
 
     if number_instances != len(actScores):
@@ -1133,8 +1136,6 @@ def quantify_wrong_reason_lime_preload(model, name, foldername="output_wr_metric
                 json.dump(data, f, ensure_ascii=False, indent=4)
         
         return 100*avg_activation_per_instance
-
-
 
 def store_mean_quantification_score_per_image_confounder(dataloader, model, \
         device, foldername="output_wr_metric/", save_name='train'):

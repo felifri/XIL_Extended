@@ -15,12 +15,14 @@ import explainer
 import matplotlib.pyplot as plt
 import argparse
 import os
+from rtpt import RTPT
 
+rtpt = RTPT(name_initials='RW', experiment_name='WR_MNIST', max_iterations=256)
 
 # +
 # __import__("pdb").set_trace()
 parser = argparse.ArgumentParser(description='XIL EVAL')
-parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'HINT_IG', 'HINT_IG2',\
+parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'HINT_IG',\
                                                                       'Mix1', 'Mix2', 'Mix2ext', 'Mix3', 'Mix4', 'Mix5', 'Mix6', 'Mix7',\
                                                                       'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13'],
                     help='Which XIL method to test?')
@@ -266,7 +268,7 @@ model = dnns.SimpleConvNet().to(DEVICE)
 if args.mode == 'Mix1':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.rbr},{args.rrrg}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix2':
-    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{int(args.hint)}--seed={SEED[i]}--run={i}'
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{args.hint}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix3':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.cdep}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix4':
@@ -276,13 +278,13 @@ elif args.mode == 'Mix5':
 elif args.mode == 'Mix6':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{args.cdep}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix7':
-    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.cdep},{int(args.hint)}--seed={SEED[i]}--run={i}'
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.cdep},{args.hint}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix8':
-    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{int(args.hint)}--seed={SEED[i]}--run={i}'
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.hint}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix8ext':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.hint_ig}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix9':
-    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rbr},{int(args.hint)}--seed={SEED[i]}--run={i}'
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rbr},{args.hint}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix11':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rbr},{args.hint_ig}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix12':
