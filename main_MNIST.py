@@ -7,9 +7,9 @@ from torch.utils import data
 
 from learner.models import dnns
 from learner.learner import Learner
-from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented, decoy_mnist_both
+from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented, decoy_mnist_both, decoy_mnist_CE_combined
 from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, HINTLoss_IG, MixLoss1, MixLoss2, MixLoss3, \
-    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13
+    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13, MixLoss14
 import util
 import explainer
 import matplotlib.pyplot as plt
@@ -24,7 +24,7 @@ rtpt = RTPT(name_initials='RW', experiment_name='WR_MNIST', max_iterations=256)
 parser = argparse.ArgumentParser(description='XIL EVAL')
 parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'HINT_IG',\
                                                                       'Mix1', 'Mix2', 'Mix2ext', 'Mix3', 'Mix4', 'Mix5', 'Mix6', 'Mix7',\
-                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13'],
+                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13', 'Mix14'],
                     help='Which XIL method to test?')
 parser.add_argument('--rrr', default=10, type=int)
 parser.add_argument('--rbr', default=100000, type=int)
@@ -160,7 +160,11 @@ if args.dataset == 'Mnist':
         train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
         loss_fn = MixLoss13(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
-
+    elif args.mode == 'Mix14':
+        # Loss function combination of RRR and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = args.rrr
+        loss_fn = MixLoss14(args.reg)
 
         
 elif args.dataset == 'FMnist':
@@ -257,12 +261,16 @@ elif args.dataset == 'FMnist':
         train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
         loss_fn = MixLoss13(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
+    elif args.mode == 'Mix14':
+        # Loss function combination of RRR and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        args.reg = args.rrr
+        loss_fn = MixLoss14(args.reg)
+
 # -
 
 
 i = args.run
-# if args.mode == 'RRRGradCAM':
-#     SEED = [1, 2, 3, 4, 5]
 util.seed_all(SEED[i])
 model = dnns.SimpleConvNet().to(DEVICE)
 if args.mode == 'Mix1':
@@ -291,6 +299,8 @@ elif args.mode == 'Mix12':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.cdep},{args.hint_ig}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix13':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{args.hint_ig}--seed={SEED[i]}--run={i}'
+elif args.mode == 'Mix14':
+    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr}--seed={SEED[i]}--run={i}'
 else:
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
