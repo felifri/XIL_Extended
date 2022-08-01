@@ -1059,3 +1059,43 @@ class MixLoss13(nn.Module):
         res = right_answer_loss + right_reason_loss
 
         return res, right_answer_loss, right_reason_loss
+
+class MixLoss14(nn.Module):
+    """
+    MixLoss14 = RRR + CE
+    """
+    def __init__(self, regularizer_rate=100, base_criterion=F.cross_entropy, weight=None, \
+                 rr_clipping=None):
+        """
+        Args:
+            regularizer_rate: controls the influence of the right reason loss.
+            base_criterion: criterion to use for right answer l
+            weight: if specified then weight right reason loss by classes. Tensor
+                with shape (c,) c=classes. WARNING !! Currently only working for
+                the special case that whole X in fwd has the same class (as is the
+                case in isic 2019).
+            rr_clipping: clip the RR loss to a maximum per batch.
+        """
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.weight = weight
+        self.rr_clipping = rr_clipping
+
+    def forward(self, X, y, y_ce, expl, logits, logits_ce):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        self.regularizer_rate = self.regrate_rrr
+        RRR = RRRLoss.forward(self, X, y, expl, logits)
+        right_answer_loss += RRR[1]
+        right_reason_loss += RRR[2]
+
+        CE = nn.CrossEntropyLoss.forward(logits_ce, y_ce)
+        right_answer_loss+=CE
+
+        right_answer_loss /= 2
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
