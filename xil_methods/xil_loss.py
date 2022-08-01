@@ -1086,7 +1086,6 @@ class MixLoss14(nn.Module):
         right_answer_loss = 0
         right_reason_loss = 0
 
-        self.regularizer_rate = self.regrate_rrr
         RRR = RRRLoss.forward(self, X, y, expl, logits)
         right_answer_loss += RRR[1]
         right_reason_loss += RRR[2]
