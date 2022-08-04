@@ -640,8 +640,6 @@ def decoy_mnist_CE_combined(fmnist=False, batch_size=256, device='cuda', \
             cachefile='data_store/rawdata/MNIST/decoy-mnist.npz')
 
     E_ce = E
-    X_ce = X
-    y_ce = y
 
     if feedback is not None:
         n, d = E.shape[0], E.shape[1]
@@ -724,7 +722,7 @@ def decoy_mnist_CE_combined(fmnist=False, batch_size=256, device='cuda', \
 
                 for i, e in enumerate(E_ce):
                     det = np.where(e == True)[0]
-                    if y_ce[i] in [0, 1, 2, 3, 4, 6, 8]:  # rectangle left right
+                    if y[i] in [0, 1, 2, 3, 4, 6, 8]:  # rectangle left right
                         if det.item(0) in [0, 672]:  # left
                             ind = [306, 307, 334, 335, 362, 363, 390, 391, 418, 419, 446, 447, 474, 475, 502, 503]
                         else:  # right
@@ -741,11 +739,15 @@ def decoy_mnist_CE_combined(fmnist=False, batch_size=256, device='cuda', \
                 if hint_expl:
                     E_hint = np.copy(E)
 
-    X_corrections, y_corrections = ce.get_corrections(X_ce, E_ce, y_ce, n_instances, n_counterexamples_per_instance, ce_strategy)
+    X_corrections, y_corrections = ce.get_corrections(X, E_ce, y, n_instances, n_counterexamples_per_instance, ce_strategy)
     # add to train set
-    X_ce = np.vstack([X_ce, X_corrections])
-    y_ce = np.hstack([y_ce, y_corrections])
-    print(f"Train set was augmented: X.size= {len(X_ce)}, y.size= {len(y_ce)}")
+    X = np.vstack([X, X_corrections])
+    y = np.hstack([y, y_corrections])
+    print(f"Train set was augmented: X.size= {len(X)}, y.size= {len(y)}")
+    zero = np.zeros(60000, dtype=int) # first 60000 are non CE
+    one = np.ones(60000, dtype=int) # next 60000 are CE
+    mask = np.append(zero, one) # 0 = non CE, 1 = CE
+    E = np.append(E, E_ce)
 
     if n_expl is not None:
         not_used_flags = np.zeros((E.shape[0] - n_expl), dtype=np.int64)
@@ -753,15 +755,13 @@ def decoy_mnist_CE_combined(fmnist=False, batch_size=256, device='cuda', \
         flags = np.concatenate((used_flags, not_used_flags), axis=0)
 
     if not flatten:  # if input for a conv net sets should not be flat
-        n_samples = 60000
-        ce_n_samples = X_ce.shape[0]
+        n_samples = X.shape[0]
 
         X = X.reshape((n_samples, 1, 28, 28))
-        X_ce = X_ce.reshape((ce_n_samples, 1, 28, 28))
         Xt = Xt.reshape((10000, 1, 28, 28))
         E = E.reshape(n_samples, 1, 28, 28)
-        E_hint = E_hint.reshape(n_samples, 1, 28, 28)
-        Xr = Xr.reshape((n_samples, 1, 28, 28))
+        E_hint = E_hint.reshape(60000, 1, 28, 28)
+        Xr = Xr.reshape((60000, 1, 28, 28))
         Xtr = Xtr.reshape((10000, 1, 28, 28))
         Et = Et.reshape(10000, 1, 28, 28)
 
@@ -771,8 +771,7 @@ def decoy_mnist_CE_combined(fmnist=False, batch_size=256, device='cuda', \
                           torch.from_numpy(E).type(torch.LongTensor), \
                           torch.from_numpy(E_hint).type(torch.LongTensor)
 
-        X_ce, y_ce = torch.from_numpy(X).type(torch.FloatTensor), \
-            torch.from_numpy(y).type(torch.LongTensor)
+        mask = torch.from_numpy(mask).type(torch.LongTensor)
 
         if n_expl is not None:
             flags = torch.from_numpy(flags).type(torch.LongTensor)
@@ -790,8 +789,7 @@ def decoy_mnist_CE_combined(fmnist=False, batch_size=256, device='cuda', \
                           torch.from_numpy(E).type(torch.cuda.LongTensor), \
                           torch.from_numpy(E_hint).type(torch.cuda.LongTensor)
 
-        X_ce, y_ce =  torch.from_numpy(X).type(torch.cuda.FloatTensor), \
-                      torch.from_numpy(y).type(torch.cuda.LongTensor)
+        mask = torch.from_numpy(mask).type(torch.cuda.LongTensor)
 
         if n_expl is not None:
             flags = torch.from_numpy(flags).type(torch.cuda.LongTensor)
@@ -805,15 +803,15 @@ def decoy_mnist_CE_combined(fmnist=False, batch_size=256, device='cuda', \
 
     if hint_expl:
         if n_expl is not None:
-            train, test = TensorDataset(X, X_ce, y, y_ce, E_hint, flags), TensorDataset(Xt, yt, Et)
+            train, test = TensorDataset(X, y, E_hint, mask, flags), TensorDataset(Xt, yt, Et)
         else:
-            train, test = TensorDataset(X, X_ce, y, y_ce, E_hint), TensorDataset(Xt, yt, Et)
+            train, test = TensorDataset(X, y, E_hint, mask), TensorDataset(Xt, yt, Et)
         return DataLoader(train, batch_size, train_shuffle), DataLoader(test, batch_size, test_shuffle)
 
     if n_expl is not None:
-        train, test = TensorDataset(X, X_ce, y, y_ce, E, flags), TensorDataset(Xt, yt, Et)
+        train, test = TensorDataset(X, y, E, mask, flags), TensorDataset(Xt, yt, Et)
     else:
-        train, test = TensorDataset(X, X_ce, y, y_ce, E), TensorDataset(Xt, yt, Et)
+        train, test = TensorDataset(X, y, E, mask), TensorDataset(Xt, yt, Et)
 
     # print(f"Train set: {train.shape}")
     # print(f"Test set: {test.shape}")

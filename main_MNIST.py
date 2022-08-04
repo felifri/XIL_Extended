@@ -9,7 +9,8 @@ from learner.models import dnns
 from learner.learner import Learner
 from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented, decoy_mnist_both, decoy_mnist_CE_combined
 from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, HINTLoss_IG, MixLoss1, MixLoss2, MixLoss3, \
-    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13, MixLoss14
+    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13, MixLoss14, \
+    MixLoss15, MixLoss16, MixLoss17, MixLoss18
 import util
 import explainer
 import matplotlib.pyplot as plt
@@ -17,14 +18,15 @@ import argparse
 import os
 from rtpt import RTPT
 
-rtpt = RTPT(name_initials='RW', experiment_name='WR_MNIST', max_iterations=256)
+rtpt = RTPT(name_initials='RW', experiment_name='main_MNIST', max_iterations=256)
 
 # +
 # __import__("pdb").set_trace()
 parser = argparse.ArgumentParser(description='XIL EVAL')
 parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'HINT_IG',\
                                                                       'Mix1', 'Mix2', 'Mix2ext', 'Mix3', 'Mix4', 'Mix5', 'Mix6', 'Mix7',\
-                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13', 'Mix14'],
+                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13', 'Mix14',\
+                                                                      'Mix15', 'Mix16', 'Mix17', 'Mix18'],
                     help='Which XIL method to test?')
 parser.add_argument('--rrr', default=10, type=int)
 parser.add_argument('--rbr', default=100000, type=int)
@@ -162,9 +164,30 @@ if args.dataset == 'Mnist':
         loss_fn = MixLoss13(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
     elif args.mode == 'Mix14':
         # Loss function combination of RRR and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
         args.reg = args.rrr
         loss_fn = MixLoss14(args.reg)
+    elif args.mode == 'Mix15':
+        # Loss function combination of RBR and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        args.reg = args.rbr
+        loss_fn = MixLoss15(args.reg)
+    elif args.mode == 'Mix16':
+        # Loss function combination of RRRG and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        args.reg = args.rrrg
+        loss_fn = MixLoss16(args.reg)
+    elif args.mode == 'Mix17':
+        # Loss function combination of CDEP and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        args.reg = args.cdep
+        loss_fn = MixLoss17(args.reg)
+    elif args.mode == 'Mix18':
+        # Loss function combination of HINT and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1, hint_expl=True)
+        args.reg = args.hint
+        loss_fn = MixLoss18(args.reg)
+
 
         
 elif args.dataset == 'FMnist':
@@ -266,6 +289,27 @@ elif args.dataset == 'FMnist':
         train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = args.rrr
         loss_fn = MixLoss14(args.reg)
+    elif args.mode == 'Mix15':
+        # Loss function combination of RBR and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        args.reg = args.rbr
+        loss_fn = MixLoss15(args.reg)
+    elif args.mode == 'Mix16':
+        # Loss function combination of RRRG and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        args.reg = args.rrrg
+        loss_fn = MixLoss16(args.reg)
+    elif args.mode == 'Mix17':
+        # Loss function combination of CDEP and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        args.reg = args.cdep
+        loss_fn = MixLoss17(args.reg)
+    elif args.mode == 'Mix18':
+        # Loss function combination of HINT and CE
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=1,
+                                                                   hint_expl=True)
+        args.reg = args.hint
+        loss_fn = MixLoss18(args.reg)
 
 # -
 
@@ -299,8 +343,8 @@ elif args.mode == 'Mix12':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.cdep},{args.hint_ig}--seed={SEED[i]}--run={i}'
 elif args.mode == 'Mix13':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{args.hint_ig}--seed={SEED[i]}--run={i}'
-elif args.mode == 'Mix14':
-    MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr}--seed={SEED[i]}--run={i}'
+# elif args.mode == 'Mix14':
+#     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr}--seed={SEED[i]}--run={i}'
 else:
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)

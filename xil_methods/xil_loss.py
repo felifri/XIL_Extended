@@ -1064,8 +1064,8 @@ class MixLoss14(nn.Module):
     """
     MixLoss14 = RRR + CE
     """
-    def __init__(self, regularizer_rate=100, base_criterion=F.cross_entropy, weight=None, \
-                 rr_clipping=None):
+    def __init__(self, regularizer_rate=10, base_criterion=F.cross_entropy, weight=None, \
+                 rr_clipping=None, ignore_index: int = -100, reduction: str = 'mean', label_smoothing=0.0):
         """
         Args:
             regularizer_rate: controls the influence of the right reason loss.
@@ -1081,19 +1081,505 @@ class MixLoss14(nn.Module):
         self.base_criterion = base_criterion
         self.weight = weight
         self.rr_clipping = rr_clipping
+        self.ignore_index = ignore_index
+        self.reduction = reduction
+        self.label_smoothing = label_smoothing
 
-    def forward(self, X, y, y_ce, expl, logits, logits_ce):
+    # def forward(self, model, X, y, expl, mask, device):
+    def forward(self, X, y, expl, mask, logits, device):
         right_answer_loss = 0
         right_reason_loss = 0
 
-        RRR = RRRLoss.forward(self, X, y, expl, logits)
-        right_answer_loss += RRR[1]
-        right_reason_loss += RRR[2]
+        # mask = mask.tolist()
+        # for i, m in enumerate(mask):
+        #
+        #     temp = X.tolist()[i]
+        #     X_i = [temp]
+        #
+        #     temp = y.tolist()[i]
+        #     y_i = [temp]
+        #
+        #     temp = expl.tolist()[i]
+        #     expl_i = [temp]
+        #
+        #     if device == "cuda":
+        #         X_i = torch.cuda.FloatTensor(X_i)
+        #         y_i = torch.cuda.LongTensor(y_i)
+        #         expl_i = torch.cuda.LongTensor(expl_i)
+        #
+        #     else:
+        #         X_i = torch.FloatTensor(X_i)
+        #         y_i = torch.LongTensor(y_i)
+        #         expl_i = torch.LongTensor(expl_i)
+        #
+        #     X_i.requires_grad_()
+        #     logits_i = model(X_i)
+        #
+        #     if m == 0:
+        #         RRR = RRRLoss.forward(self, X_i, y_i, expl_i, logits_i)
+        #         ra_loss = RRR[1]
+        #         right_reason_loss += RRR[2]
+        #
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         ra_loss += CE
+        #
+        #         right_answer_loss += ra_loss / 2
+        #
+        #     elif mask == 1:
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         right_answer_loss += CE
+        #         rr_loss = [0]
+        #         if device == 'cuda':
+        #             rr_loss = torch.cuda.IntTensor(rr_loss)
+        #         else:
+        #             rr_loss = torch.IntTensor(rr_loss)
+        #         right_reason_loss += rr_loss
 
-        CE = nn.CrossEntropyLoss.forward(logits_ce, y_ce)
-        right_answer_loss+=CE
 
-        right_answer_loss /= 2
+        if mask == 0:
+            RRR = RRRLoss.forward(self, X, y, expl, logits)
+            ra_loss = RRR[1]
+            right_reason_loss += RRR[2]
+
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            ra_loss += CE
+
+            right_answer_loss += ra_loss/2
+
+        elif mask == 1:
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            right_answer_loss += CE
+            rr_loss = [0]
+            if device == 'cuda':
+                rr_loss = torch.cuda.IntTensor(rr_loss)
+            else:
+                rr_loss = torch.IntTensor(rr_loss)
+            right_reason_loss += rr_loss
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss15(nn.Module):
+    """
+    MixLoss15 = RBR + CE
+    """
+    def __init__(self, regularizer_rate=1000000, base_criterion=F.cross_entropy, \
+            rr_clipping=None, weight=None, ignore_index: int = -100, reduction: str = 'mean', label_smoothing=0.0):
+        """
+        Args:
+            regularizer_rate: controls the influence of the right reason loss.
+            base_criterion: criterion to use for right answer loss
+            weight: if specified then weight right reason loss by classes. Tensor
+                with shape (c,) c=classes. WARNING !! Currently only working for
+                the special case that whole X in fwd has the same class (as is the
+                case in isic 2019).
+            rr_clipping: sets the max right reason loss to specified value -> Helps smoothing
+                and stabilizing training process.
+        """
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.rr_clipping = rr_clipping # good rate for decoy mnist 1.0
+        self.weight = weight
+        self.ignore_index = ignore_index
+        self.reduction = reduction
+        self.label_smoothing = label_smoothing
+
+    def forward(self, model, X, y, expl, mask, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        # mask = mask.tolist()
+        # for i, m in enumerate(mask):
+        #
+        #     temp = X.tolist()[i]
+        #     X_i = [temp]
+        #
+        #     temp = y.tolist()[i]
+        #     y_i = [temp]
+        #
+        #     temp = expl.tolist()[i]
+        #     expl_i = [temp]
+        #
+        #     if device == "cuda":
+        #         X_i = torch.cuda.FloatTensor(X_i)
+        #         y_i = torch.cuda.LongTensor(y_i)
+        #         expl_i = torch.cuda.LongTensor(expl_i)
+        #
+        #     else:
+        #         X_i = torch.FloatTensor(X_i)
+        #         y_i = torch.LongTensor(y_i)
+        #         expl_i = torch.LongTensor(expl_i)
+        #
+        #     X_i.requires_grad_()
+        #     logits_i = model(X_i)
+        #
+        #     if m == 0:
+        #         RBR = RBRLoss.forward(self, model, X_i, y_i, expl_i, logits_i)
+        #         ra_loss = RBR[1]
+        #         right_reason_loss += RBR[2]
+        #
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         ra_loss += CE
+        #
+        #         right_answer_loss += ra_loss / 2
+        #
+        #     elif mask == 1:
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         right_answer_loss += CE
+        #         rr_loss = [0]
+        #         if device == 'cuda':
+        #             rr_loss = torch.cuda.IntTensor(rr_loss)
+        #         else:
+        #             rr_loss = torch.IntTensor(rr_loss)
+        #         right_reason_loss += rr_loss
+
+
+        if mask == 0:
+            RBR = RBRLoss.forward(self, model, X, y, expl, logits)
+            ra_loss = RBR[1]
+            right_reason_loss += RBR[2]
+
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            ra_loss += CE
+
+            right_answer_loss += ra_loss/2
+
+        elif mask == 1:
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            right_answer_loss += CE
+            rr_loss = [0]
+            if device == 'cuda':
+                rr_loss = torch.cuda.IntTensor(rr_loss)
+            else:
+                rr_loss = torch.IntTensor(rr_loss)
+            right_reason_loss += rr_loss
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss16(nn.Module):
+    """
+    MixLoss16 = RRRG + CE
+    """
+    def __init__(self, regularizer_rate=1, base_criterion=F.cross_entropy, reduction='sum',\
+        last_conv_specified=False, weight=None, rr_clipping=None, ignore_index: int = -100, label_smoothing=0.0):
+        """
+        Args:
+            regularizer_rate: controls the influence of the right reason loss.
+            base_criterion: criterion to use for right answer loss
+            reduction: Method to reduce loss. Either 'sum' or 'mean'.
+            last_conv_specified: if True then uses the last convolutional layer
+                which must have the name 'last_conv' in the network definition. If
+                False then the last conv layer is calculated dynamically every time
+                (increases run time).
+            weight: if specified then weight right reason loss by classes. Tensor
+                with shape (c,) c=classes.
+            rr_clipping: sets the max right reason loss to specified value -> Helps smoothing
+                and stabilizing training process.
+        """
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.reduction = reduction
+        self.last_conv_specified = last_conv_specified
+        self.weight = weight
+        self.rr_clipping = rr_clipping
+        self.ignore_index = ignore_index
+        self.label_smoothing = label_smoothing
+
+    def forward(self, model, X, y, expl, mask, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        # mask = mask.tolist()
+        # for i, m in enumerate(mask):
+        #
+        #     temp = X.tolist()[i]
+        #     X_i = [temp]
+        #
+        #     temp = y.tolist()[i]
+        #     y_i = [temp]
+        #
+        #     temp = expl.tolist()[i]
+        #     expl_i = [temp]
+        #
+        #     if device == "cuda":
+        #         X_i = torch.cuda.FloatTensor(X_i)
+        #         y_i = torch.cuda.LongTensor(y_i)
+        #         expl_i = torch.cuda.LongTensor(expl_i)
+        #
+        #     else:
+        #         X_i = torch.FloatTensor(X_i)
+        #         y_i = torch.LongTensor(y_i)
+        #         expl_i = torch.LongTensor(expl_i)
+        #
+        #     X_i.requires_grad_()
+        #     logits_i = model(X_i)
+        #
+        #     if m == 0:
+        #         self.reduction = 'sum'
+        #         RRRG = RRRGradCamLoss.forward(self, model, X, y, expl, logits, device)
+        #         ra_loss = RRRG[1]
+        #         right_reason_loss += RRRG[2]
+        #
+        #         self.reduction = 'mean'
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         ra_loss += CE
+        #
+        #         right_answer_loss += ra_loss / 2
+        #
+        #     elif mask == 1:
+        #         self.reduction = 'mean'
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         right_answer_loss += CE
+        #         rr_loss = [0]
+        #         if device == 'cuda':
+        #             rr_loss = torch.cuda.IntTensor(rr_loss)
+        #         else:
+        #             rr_loss = torch.IntTensor(rr_loss)
+        #         right_reason_loss += rr_loss
+
+        if mask == 0:
+            self.reduction = 'sum'
+            RRRG = RRRGradCamLoss.forward(self, model, X, y, expl, logits, device)
+            ra_loss = RRRG[1]
+            right_reason_loss += RRRG[2]
+
+            self.reduction = 'mean'
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            ra_loss += CE
+
+            right_answer_loss += ra_loss / 2
+
+        elif mask == 1:
+            self.reduction = 'mean'
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            right_answer_loss += CE
+            rr_loss = [0]
+            if device == 'cuda':
+                rr_loss = torch.cuda.IntTensor(rr_loss)
+            else:
+                rr_loss = torch.IntTensor(rr_loss)
+            right_reason_loss += rr_loss
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss17(nn.Module):
+    """
+    MixLoss17 = CDEP + CE
+    """
+    def __init__(self, regularizer_rate=1000, base_criterion=F.cross_entropy, weight=None, \
+        model_type='mnist', rr_clipping=None, ignore_index: int = -100, reduction: str = 'mean', label_smoothing=0.0):
+        """
+        Args:
+            regularizer_rate: controls the influence of the right reason loss.
+            base_criterion: criterion to use for right answer loss
+            weight: if specified then weight right reason loss by classes. Tensor
+                with shape (c,) c=classes. WARNING !! Currently only working for
+                the special case that whole X in fwd has the same class (as is the
+                case in isic 2019).
+            rr_clipping: sets the max right reason loss to specified value -> Helps smoothing
+                and stabilizing training process.
+            model_type: specify the network architecture. Either 'mnist' or 'vgg'
+        """
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.weight = weight
+        self.model_type = model_type
+        self.rr_clipping = rr_clipping
+        self.ignore_index = ignore_index
+        self.reduction = reduction
+        self.label_smoothing = label_smoothing
+
+    def forward(self, model, X, y, expl, mask, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        # mask = mask.tolist()
+        # for i, m in enumerate(mask):
+        #
+        #     temp = X.tolist()[i]
+        #     X_i = [temp]
+        #
+        #     temp = y.tolist()[i]
+        #     y_i = [temp]
+        #
+        #     temp = expl.tolist()[i]
+        #     expl_i = [temp]
+        #
+        #     if device == "cuda":
+        #         X_i = torch.cuda.FloatTensor(X_i)
+        #         y_i = torch.cuda.LongTensor(y_i)
+        #         expl_i = torch.cuda.LongTensor(expl_i)
+        #
+        #     else:
+        #         X_i = torch.FloatTensor(X_i)
+        #         y_i = torch.LongTensor(y_i)
+        #         expl_i = torch.LongTensor(expl_i)
+        #
+        #     X_i.requires_grad_()
+        #     logits_i = model(X_i)
+        #
+        #     if m == 0:
+        #         CDEP = CDEPLoss.forward(self, model, X, y, expl, logits, device)
+        #         ra_loss = CDEP[1]
+        #         right_reason_loss += CDEP[2][0]
+        #
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         ra_loss += CE
+        #
+        #         right_answer_loss += ra_loss / 2
+        #
+        #     elif mask == 1:
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         right_answer_loss += CE
+        #         rr_loss = [0]
+        #         if device == 'cuda':
+        #             rr_loss = torch.cuda.IntTensor(rr_loss)
+        #         else:
+        #             rr_loss = torch.IntTensor(rr_loss)
+        #         right_reason_loss += rr_loss
+
+        if mask == 0:
+            CDEP = CDEPLoss.forward(self, model, X, y, expl, logits, device)
+            ra_loss = CDEP[1]
+            right_reason_loss += CDEP[2][0]
+
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            ra_loss += CE
+
+            right_answer_loss += ra_loss / 2
+
+        elif mask == 1:
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            right_answer_loss += CE
+            rr_loss = [0]
+            if device == 'cuda':
+                rr_loss = torch.cuda.IntTensor(rr_loss)
+            else:
+                rr_loss = torch.IntTensor(rr_loss)
+            right_reason_loss += rr_loss
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLoss18(nn.Module):
+    """
+    MixLoss18 = HINT + CE
+    """
+    def __init__(self, regularizer_rate=0.1, base_criterion=F.cross_entropy, reduction='mean', \
+        last_conv_specified=False, upsample=False, weight=None, positive_only=False, rr_clipping=None, \
+                 ignore_index: int = -100, label_smoothing=0.0):
+        """
+        Args:
+            regularizer_rate: controls the influence of the right reason loss.
+            base_criterion: criterion to use for right answer loss
+            reduction: reduction method either 'none', 'mean', 'sum'.
+            last_conv_specified: if True then uses the last convolutional layer
+                which must have the name 'last_conv' in the network definition. If
+                False then the last conv layer is calculated dynamically every time
+                (increases run time).
+            upsample: if True then the saliency masks of the model are upsampled to match
+                the user explanation masks. If False then the user expl masks are downsampled.
+            weight: if specified then weight right reason loss by classes. Tensor
+                with shape (c,) c=classes.
+            positive_only: if True all negative attribution gets zero.
+            rr_clipping: sets the max right reason loss to specified value -> Helps smoothing
+                and stabilizing training process.
+        """
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.reduction = reduction
+        self.last_conv_specified = last_conv_specified
+        self.upsample = upsample
+        self.weight = weight
+        self.positive_only = positive_only
+        self.rr_clipping = rr_clipping
+        self.ignore_index = ignore_index
+        self.label_smoothing = label_smoothing
+
+    def forward(self, model, X, y, expl, mask, logits, device):
+        right_answer_loss = 0
+        right_reason_loss = 0
+
+        # mask = mask.tolist()
+        # for i, m in enumerate(mask):
+        #
+        #     temp = X.tolist()[i]
+        #     X_i = [temp]
+        #
+        #     temp = y.tolist()[i]
+        #     y_i = [temp]
+        #
+        #     temp = expl.tolist()[i]
+        #     expl_i = [temp]
+        #
+        #     if device == "cuda":
+        #         X_i = torch.cuda.FloatTensor(X_i)
+        #         y_i = torch.cuda.LongTensor(y_i)
+        #         expl_i = torch.cuda.LongTensor(expl_i)
+        #
+        #     else:
+        #         X_i = torch.FloatTensor(X_i)
+        #         y_i = torch.LongTensor(y_i)
+        #         expl_i = torch.LongTensor(expl_i)
+        #
+        #     X_i.requires_grad_()
+        #     logits_i = model(X_i)
+        #
+        #     if m == 0:
+        #         self.reduction = 'sum'
+        #         HINT = HINTLoss.forward(self, model, X, y, expl, logits, device)
+        #         ra_loss = HINT[1]
+        #         right_reason_loss += HINT[2][0]
+        #
+        #         self.reduction = 'mean'
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         ra_loss += CE
+        #
+        #         right_answer_loss += ra_loss / 2
+        #
+        #     elif mask == 1:
+        #         self.reduction = 'mean'
+        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
+        #         right_answer_loss += CE
+        #         rr_loss = [0]
+        #         if device == 'cuda':
+        #             rr_loss = torch.cuda.IntTensor(rr_loss)
+        #         else:
+        #             rr_loss = torch.IntTensor(rr_loss)
+        #         right_reason_loss += rr_loss
+
+        if mask == 0:
+            # self.reduction = 'sum'
+            HINT = HINTLoss.forward(self, model, X, y, expl, logits, device)
+            ra_loss = HINT[1]
+            right_reason_loss += HINT[2][0]
+
+            # self.reduction = 'mean'
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            ra_loss += CE
+
+            right_answer_loss += ra_loss / 2
+
+        elif mask == 1:
+            # self.reduction = 'mean'
+            CE = nn.CrossEntropyLoss.forward(self, logits, y)
+            right_answer_loss += CE
+            rr_loss = [0]
+            if device == 'cuda':
+                rr_loss = torch.cuda.IntTensor(rr_loss)
+            else:
+                rr_loss = torch.IntTensor(rr_loss)
+            right_reason_loss += rr_loss
 
         res = right_answer_loss + right_reason_loss
 

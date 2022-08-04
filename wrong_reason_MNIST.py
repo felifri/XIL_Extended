@@ -9,7 +9,8 @@ from learner.models import dnns
 from learner.learner import Learner
 from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented, decoy_mnist_both
 from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, HINTLoss_IG, RBRLoss, MixLoss1, MixLoss2, MixLoss3, \
-    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13, MixLoss14
+    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13, MixLoss14, \
+    MixLoss15, MixLoss16, MixLoss17, MixLoss18
 import util
 import explainer
 import matplotlib.pyplot as plt
@@ -24,7 +25,8 @@ rtpt = RTPT(name_initials='RW', experiment_name='WR_MNIST', max_iterations=256)
 parser = argparse.ArgumentParser(description='XIL EVAL')
 parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'HINT_IG',\
                                                                       'Mix1', 'Mix2', 'Mix3', 'Mix4', 'Mix5', 'Mix6', 'Mix7',\
-                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13', 'Mix14'],
+                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13', 'Mix14',\
+                                                                      'Mix15', 'Mix16', 'Mix17', 'Mix18'],
                     help='Which XIL method to test?')
 parser.add_argument('--rrr', default=10, type=int)
 parser.add_argument('--rbr', default=100000, type=int)
@@ -163,6 +165,22 @@ if args.dataset == 'Mnist':
         # Loss function combination of RRR and CE
         args.reg = args.rrr
         loss_fn = MixLoss14(args.reg)
+    elif args.mode == 'Mix15':
+        # Loss function combination of RBR and CE
+        args.reg = args.rbr
+        loss_fn = MixLoss15(args.reg)
+    elif args.mode == 'Mix16':
+        # Loss function combination of RRRG and CE
+        args.reg = args.rrrg
+        loss_fn = MixLoss16(args.reg)
+    elif args.mode == 'Mix17':
+        # Loss function combination of CDEP and CE
+        args.reg = args.cdep
+        loss_fn = MixLoss17(args.reg)
+    elif args.mode == 'Mix18':
+        # Loss function combination of HINT and CE
+        args.reg = args.hint
+        loss_fn = MixLoss18(args.reg)
 
         
 elif args.dataset == 'FMnist':
@@ -260,6 +278,22 @@ elif args.dataset == 'FMnist':
         # Loss function combination of RRR and CE
         args.reg = args.rrr
         loss_fn = MixLoss14(args.reg)
+    elif args.mode == 'Mix15':
+        # Loss function combination of RBR and CE
+        args.reg = args.rbr
+        loss_fn = MixLoss15(args.reg)
+    elif args.mode == 'Mix16':
+        # Loss function combination of RRRG and CE
+        args.reg = args.rrrg
+        loss_fn = MixLoss16(args.reg)
+    elif args.mode == 'Mix17':
+        # Loss function combination of CDEP and CE
+        args.reg = args.cdep
+        loss_fn = MixLoss17(args.reg)
+    elif args.mode == 'Mix18':
+        # Loss function combination of HINT and CE
+        args.reg = args.hint
+        loss_fn = MixLoss18(args.reg)
 
 
 # +
