@@ -6,6 +6,7 @@ __pycache__/
 data_store/rawdata/MNIST
 data_store/__pycache__
 data_store/rawdata/__pycache__
+img_wr_metric
 xil_methods/__pycache__
 xil_methods/cd_util/__pycache__
 learner/model_store
