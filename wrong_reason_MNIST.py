@@ -9,7 +9,7 @@ from learner.models import dnns
 from learner.learner import Learner
 from data_store.datasets import decoy_mnist, decoy_mnist_CE_augmented, decoy_mnist_both
 from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, HINTLoss_IG, RBRLoss, MixLoss1, MixLoss2, MixLoss3, \
-    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13
+    MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13, MixLoss14
 import util
 import explainer
 import matplotlib.pyplot as plt
@@ -24,7 +24,7 @@ rtpt = RTPT(name_initials='RW', experiment_name='WR_MNIST', max_iterations=256)
 parser = argparse.ArgumentParser(description='XIL EVAL')
 parser.add_argument('-m', '--mode', default='RRR', type=str, choices=['Vanilla','RRR','RRR-G','HINT','CDEP','CE','RBR', 'HINT_IG',\
                                                                       'Mix1', 'Mix2', 'Mix3', 'Mix4', 'Mix5', 'Mix6', 'Mix7',\
-                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13'],
+                                                                      'Mix8', 'Mix8ext', 'Mix9', 'Mix11', 'Mix12', 'Mix13', 'Mix14'],
                     help='Which XIL method to test?')
 parser.add_argument('--rrr', default=10, type=int)
 parser.add_argument('--rbr', default=100000, type=int)
@@ -47,9 +47,9 @@ args = parser.parse_args()
 # Get cpu or gpu device for training.
 DEVICE = "cuda"
 SEED = [1, 10, 100, 1000, 10000]
-SHUFFLE = True
-BATCH_SIZE = 256
-# BATCH_SIZE = 10
+SHUFFLE = False
+#BATCH_SIZE = 256
+BATCH_SIZE = 1
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 0.0001
 EPOCHS = 50
@@ -159,6 +159,10 @@ if args.dataset == 'Mnist':
         # train_dataloader, val_dataloader = decoy_mnist_both(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
         loss_fn = MixLoss13(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
+    elif args.mode == 'Mix14':
+        # Loss function combination of RRR and CE
+        args.reg = args.rrr
+        loss_fn = MixLoss14(args.reg)
 
         
 elif args.dataset == 'FMnist':
@@ -252,6 +256,10 @@ elif args.dataset == 'FMnist':
         # train_dataloader, val_dataloader = decoy_mnist_both(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = None
         loss_fn = MixLoss13(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
+    elif args.mode == 'Mix14':
+        # Loss function combination of RRR and CE
+        args.reg = args.rrr
+        loss_fn = MixLoss14(args.reg)
 
 
 # +
@@ -296,8 +304,6 @@ avg1, avg2, avg3, avg4, avg5, avg6, avg7, avg8 = [], [], [], [], [], [], [], []
 #         threshold=thresh, device=DEVICE, batch_size=BATCH_SIZE))
 
 for i in range(5):
-    # if args.mode == 'RRRGradCAM':
-    #     SEED = [1, 2, 3, 4, 5]
     util.seed_all(SEED[i])
     model = dnns.SimpleConvNet().to(DEVICE)
     if args.mode == 'Mix1':
@@ -338,10 +344,10 @@ for i in range(5):
         #                               next_to_each_other=False,
         #                               save_name=f'{args.dataset}-expl/{args.mode}_grad/{args.dataset}-{args.mode}-test-wp-grad')
         thresh = explainer.quantify_wrong_reason('grad_cam', test_dataloader, learner.model, mode='mean',
-                                                 name=f'{args.mode}-grad', \
+                                                 name=f'{args.mode}-grad', wr_name=MODELNAME+"--grad",\
                                                  threshold=None, flags=False, device=DEVICE)
         avg1.append(explainer.quantify_wrong_reason('grad_cam', test_dataloader, learner.model, mode='mean',
-                                                    name=f'{args.mode}-grad', \
+                                                    name=f'{args.mode}-grad', wr_name=MODELNAME+"--grad",\
                                                     threshold=thresh, flags=False, device=DEVICE))
 
     if 'Saliency' in args.method:
@@ -350,10 +356,10 @@ for i in range(5):
         #                               next_to_each_other=False,
         #                               save_name=f'{args.dataset}-expl/{args.mode}_saliency/{args.dataset}-{args.mode}-test-wp-grad')
         thresh = explainer.quantify_wrong_reason('saliency', test_dataloader, learner.model, mode='mean',
-                                                 name=f'{args.mode}-saliency', \
+                                                 name=f'{args.mode}-saliency', wr_name=MODELNAME+"--saliency",\
                                                  threshold=None, flags=False, device=DEVICE)
         avg4.append(explainer.quantify_wrong_reason('saliency', test_dataloader, learner.model, mode='mean',
-                                                    name=f'{args.mode}-saliency', \
+                                                    name=f'{args.mode}-saliency', wr_name=MODELNAME+"--saliency",\
                                                     threshold=thresh, flags=False, device=DEVICE))
 
     if 'IxG' in args.method:
@@ -362,10 +368,10 @@ for i in range(5):
         #                               next_to_each_other=False,
         #                               save_name=f'{args.dataset}-expl/{args.mode}_input_x_gradient/{args.dataset}-{args.mode}-test-wp-grad')
         thresh = explainer.quantify_wrong_reason('input_x_gradient', test_dataloader, learner.model, mode='mean',
-                                                 name=f'{args.mode}-input_x_gradient', \
+                                                 name=f'{args.mode}-input_x_gradient', wr_name=MODELNAME+"--input_x_gradient",\
                                                  threshold=None, flags=False, device=DEVICE)
         avg5.append(explainer.quantify_wrong_reason('input_x_gradient', test_dataloader, learner.model, mode='mean',
-                                                    name=f'{args.mode}-input_x_gradient', \
+                                                    name=f'{args.mode}-input_x_gradient', wr_name=MODELNAME+"--input_x_gradient",\
                                                     threshold=thresh, flags=False, device=DEVICE))
 
     if 'DeepLift' in args.method:
@@ -374,10 +380,10 @@ for i in range(5):
         #                               next_to_each_other=False,
         #                               save_name=f'{args.dataset}-expl/{args.mode}_deep_lift/{args.dataset}-{args.mode}-test-wp-grad')
         thresh = explainer.quantify_wrong_reason('deep_lift', test_dataloader, learner.model, mode='mean',
-                                                 name=f'{args.mode}-deep_lift', \
+                                                 name=f'{args.mode}-deep_lift', wr_name=MODELNAME+"--deep_lift",\
                                                  threshold=None, flags=False, device=DEVICE)
         avg6.append(explainer.quantify_wrong_reason('deep_lift', test_dataloader, learner.model, mode='mean',
-                                                    name=f'{args.mode}-deep_lift', \
+                                                    name=f'{args.mode}-deep_lift', wr_name=MODELNAME+"--deep_lift",\
                                                     threshold=thresh, flags=False, device=DEVICE))
 
     if 'LRP' in args.method:
@@ -386,10 +392,10 @@ for i in range(5):
         #                               next_to_each_other=False,
         #                               save_name=f'{args.dataset}-expl/{args.mode}_lrp/{args.dataset}-{args.mode}-test-wp-grad')
         thresh = explainer.quantify_wrong_reason('lrp', test_dataloader, learner.model, mode='mean',
-                                                 name=f'{args.mode}-lrp', \
+                                                 name=f'{args.mode}-lrp', wr_name=MODELNAME+"--lrp",\
                                                  threshold=None, flags=False, device=DEVICE)
         avg7.append(explainer.quantify_wrong_reason('lrp', test_dataloader, learner.model, mode='mean',
-                                                    name=f'{args.mode}-lrp', \
+                                                    name=f'{args.mode}-lrp', wr_name=MODELNAME+"--lrp",\
                                                     threshold=thresh, flags=False, device=DEVICE))
 
     if 'GBP' in args.method:
@@ -398,10 +404,10 @@ for i in range(5):
         #                               next_to_each_other=False,
         #                               save_name=f'{args.dataset}-expl/{args.mode}_guided_backprop/{args.dataset}-{args.mode}-test-wp-grad')
         thresh = explainer.quantify_wrong_reason('guided_backprop', test_dataloader, learner.model, mode='mean',
-                                                 name=f'{args.mode}-guided_backprop', \
+                                                 name=f'{args.mode}-guided_backprop', wr_name=MODELNAME+"--guided_backprop",\
                                                  threshold=None, flags=False, device=DEVICE)
         avg8.append(explainer.quantify_wrong_reason('guided_backprop', test_dataloader, learner.model, mode='mean',
-                                                    name=f'{args.mode}-guided_backprop', \
+                                                    name=f'{args.mode}-guided_backprop', wr_name=MODELNAME+"--guided_backprop",\
                                                     threshold=thresh, flags=False, device=DEVICE))
 
 
@@ -411,10 +417,10 @@ for i in range(5):
         #                           next_to_each_other=False,
         #                           save_name=f'{args.dataset}-expl/{args.mode}_ig/{args.dataset}-{args.mode}-test-wp-ig')
         thresh = explainer.quantify_wrong_reason('ig_ross', test_dataloader, learner.model, mode='mean',
-                                                 name=f'{args.mode}-ig', \
+                                                 name=f'{args.mode}-ig', wr_name=MODELNAME+"--ig",\
                                                  threshold=None, flags=False, device=DEVICE)
         avg2.append(explainer.quantify_wrong_reason('ig_ross', test_dataloader, learner.model, mode='mean',
-                                                    name=f'{args.mode}-ig', \
+                                                    name=f'{args.mode}-ig', wr_name=MODELNAME+"--ig",\
                                                     threshold=thresh, flags=False, device=DEVICE))
 
     if 'LIME' in args.method:
@@ -430,9 +436,6 @@ for i in range(5):
                                                                  threshold=thresh, device=DEVICE,
                                                                  batch_size=BATCH_SIZE))
 
-# print("!!!!!!!! AVG 1 : " + str(avg1))
-# breakpoint()
-# check if avg only have 5 items
 
 if args.mode == 'Mix1':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrr}-{args.rbr}-{args.rrrg}.txt", "w")
@@ -461,7 +464,7 @@ elif args.mode == 'Mix12':
 elif args.mode == 'Mix13':
     f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.rrrg}-{args.hint_ig}.txt", "w")
 else:
-    f = open(f"./output_wr_metric/{args.dataset}-{args.mode}.txt", "w")
+    f = open(f"./output_wr_metric/{args.dataset}-{args.mode}-{args.reg}.txt", "w")
 f.write(f'Grad P: mean:{np.mean(avg1)}, std:{np.std(avg1)}\n'
         f'IG P: mean:{np.mean(avg2)}, std:{np.std(avg2)}\n'
         f'LIME P: mean:{np.mean(avg3)}, std:{np.std(avg3)}\n'

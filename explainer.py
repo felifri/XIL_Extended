@@ -664,7 +664,7 @@ def explain_with_ig_one_by_one(model, dataloader, sign='positive', \
 
 # ### WRONG REASON QUANTIFICATION: WR METRIC
 
-def quantify_wrong_reason(method, dataloader, model, device, name, \
+def quantify_wrong_reason(method, dataloader, model, device, name, wr_name,\
     foldername="output_wr_metric/", threshold=None, mode='mean', flags=True):
     """
     Quantifies wrong reason based on ground-truth explanations (i.e.
@@ -694,9 +694,10 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
     actScores = []
     number_instances = 0
     cannot_attribute_num = 0
+    img_num = []
 
     with tqdm(dataloader, unit="batch") as tbatch:
-        for data in tbatch:
+        for num, data in enumerate(tbatch):
             if flags:
                 images_t, masks_t, flags_t = data[0].to(device), data[2].to(device), data[3].to(device)
             else:
@@ -782,6 +783,8 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
 
                 actScore = torch.div(attr_ca, attr_max)
                 actScores += actScore.tolist()
+                if dataloader.batch_size == 1:
+                    img_num.append(num)
                 # print("actScore " + str(actScore))
 
             else: # calc median/mean
@@ -790,8 +793,11 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
                 elif mode == 'median':
                     scores = torch.median(norm_attr.view(norm_attr.size(0), -1), dim=1)[0]
                 actScores += scores.tolist()
+                if dataloader.batch_size == 1:
+                    img_num.append(num)
             #     print("scores " + str(scores))
-            # print(" !!!!!! SCORES = " + str(actScores))
+
+            # print(" !!!!!! SCORES = " + str(a))
             # check if list item in actScores equal to 'BATCH_SIZE'
 
 
@@ -818,6 +824,22 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
             }
         with open(foldername + name + '-wrong_reason_stats.json', 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
+
+        if img_num:
+            arr = np.array(actScores)
+            arr = 100 * arr
+            actScores = arr.tolist()
+            wr_score = list(zip(img_num, actScores))
+            f = open(f"./img_wr_metric/{wr_name}.txt", "w")
+            # f.write(f'{wr_score}\n')
+            f.write(f'img_num \t wr_score \n')
+            for i in wr_score:
+                line = str(i[0]) + " \t\t\t " + str(i[1])
+                f.write(f'{line}\n')
+            f.close()
+
+        # breakpoint()
+
         return 100*avg_activation_per_instance
 
     else:
@@ -839,6 +861,13 @@ def quantify_wrong_reason(method, dataloader, model, device, name, \
         
         with open(foldername + name + '-' + str(mode) + '.json', 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
+
+        # if img_num:
+        #     arr = np.array(actScores)
+        #     arr = 100 * arr
+        #     actScores = arr.tolist()
+        #     wr_score = list(zip(img_num, actScores))
+
         return float(value)#, len(actScores)
 
 def quantify_wrong_reason_lime(dataloader, model, name, foldername="output_wr_metric/",\
