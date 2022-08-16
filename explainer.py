@@ -825,16 +825,20 @@ def quantify_wrong_reason(method, dataloader, model, device, name, wr_name,\
         with open(foldername + name + '-wrong_reason_stats.json', 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
+        def takeSecond(elem):
+            return elem[1]
+
         if img_num:
             arr = np.array(actScores)
             arr = 100 * arr
             actScores = arr.tolist()
             wr_score = list(zip(img_num, actScores))
+            wr_score.sort(key=takeSecond, reverse=True)
             f = open(f"./img_wr_metric/{wr_name}.txt", "w")
             # f.write(f'{wr_score}\n')
             f.write(f'img_num \t wr_score \n')
             for i in wr_score:
-                line = str(i[0]) + " \t\t\t " + str(i[1])
+                line = str(i[0]) + "\t\t\t" + str(i[1])
                 f.write(f'{line}\n')
             f.close()
 
