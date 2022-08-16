@@ -46,6 +46,7 @@ args = parser.parse_args()
 # Get cpu or gpu device for training.
 DEVICE = "cuda"
 SEED = [1, 10, 100, 1000, 10000]
+SEED2 = [1, 2, 3, 4, 5]
 SHUFFLE = True
 BATCH_SIZE = 256
 LEARNING_RATE = 0.001
@@ -164,27 +165,27 @@ if args.dataset == 'Mnist':
         loss_fn = MixLoss13(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
     elif args.mode == 'Mix14':
         # Loss function combination of RRR and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = args.rrr
         loss_fn = MixLoss14(args.reg)
     elif args.mode == 'Mix15':
         # Loss function combination of RBR and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = args.rbr
         loss_fn = MixLoss15(args.reg)
     elif args.mode == 'Mix16':
         # Loss function combination of RRRG and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = args.rrrg
         loss_fn = MixLoss16(args.reg)
     elif args.mode == 'Mix17':
         # Loss function combination of CDEP and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = args.cdep
         loss_fn = MixLoss17(args.reg)
     elif args.mode == 'Mix18':
         # Loss function combination of HINT and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=1, hint_expl=True)
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, hint_expl=True)
         args.reg = args.hint
         loss_fn = MixLoss18(args.reg)
 
@@ -291,31 +292,36 @@ elif args.dataset == 'FMnist':
         loss_fn = MixLoss14(args.reg)
     elif args.mode == 'Mix15':
         # Loss function combination of RBR and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = args.rbr
         loss_fn = MixLoss15(args.reg)
     elif args.mode == 'Mix16':
         # Loss function combination of RRRG and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = args.rrrg
         loss_fn = MixLoss16(args.reg)
     elif args.mode == 'Mix17':
         # Loss function combination of CDEP and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=1)
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
         args.reg = args.cdep
         loss_fn = MixLoss17(args.reg)
     elif args.mode == 'Mix18':
         # Loss function combination of HINT and CE
-        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=1,
+        train_dataloader, val_dataloader = decoy_mnist_CE_combined(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE,
                                                                    hint_expl=True)
         args.reg = args.hint
         loss_fn = MixLoss18(args.reg)
 
 # -
 
-
 i = args.run
-util.seed_all(SEED[i])
+if args.mode == 'Mix16':
+    util.seed_all(SEED2[i])
+else:
+    util.seed_all(SEED[i])
+
+# util.seed_all(SEED[i])
+
 model = dnns.SimpleConvNet().to(DEVICE)
 if args.mode == 'Mix1':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrr},{args.rbr},{args.rrrg}--seed={SEED[i]}--run={i}'
