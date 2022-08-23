@@ -834,11 +834,12 @@ def quantify_wrong_reason(method, dataloader, model, device, name, wr_name,\
             actScores = arr.tolist()
             wr_score = list(zip(img_num, actScores))
             wr_score.sort(key=takeSecond, reverse=True)
+            # breakpoint()
+            wr_score = list(zip(img_num, wr_score))
             f = open(f"./img_wr_metric/{wr_name}.txt", "w")
-            # f.write(f'{wr_score}\n')
-            f.write(f'img_num \t wr_score \n')
+            f.write(f'\t img_num \t wr_score \n')
             for i in wr_score:
-                line = str(i[0]) + "\t\t\t" + str(i[1])
+                line = str(i[0]) + "\t" + str(i[1][0]) + "\t\t\t" + str(i[1][1])
                 f.write(f'{line}\n')
             f.close()
 

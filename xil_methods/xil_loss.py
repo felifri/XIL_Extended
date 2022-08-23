@@ -57,7 +57,7 @@ class RRRLoss(nn.Module):
     with the (ground-truth) user explanation.
     
     """
-    def __init__(self, regularizer_rate=100, base_criterion=F.cross_entropy, weight=None,\
+    def __init__(self, regularizer_rate=10, base_criterion=F.cross_entropy, weight=None,\
          rr_clipping=None):
         """
         Args:
@@ -122,7 +122,7 @@ class RBRLoss(nn.Module):
     Right for the Better Reasons (RBR) loss according to Shao et. al 2021.
     Using identity matrix instead of hessian.
     """
-    def __init__(self, regularizer_rate=1000000, base_criterion=F.cross_entropy, \
+    def __init__(self, regularizer_rate=100000, base_criterion=F.cross_entropy, \
             rr_clipping=None, weight=None):
         """
         Args:
@@ -303,7 +303,7 @@ class CDEPLoss(nn.Module):
     CDEP loss as proposed by Rieger et. al 2020.
     See https://github.com/laura-rieger/deep-explanation-penalization.
     """
-    def __init__(self, regularizer_rate=1000, base_criterion=F.cross_entropy, weight=None, \
+    def __init__(self, regularizer_rate=1000000, base_criterion=F.cross_entropy, weight=None, \
         model_type='mnist', rr_clipping=None):
         """
         Args:
@@ -373,7 +373,7 @@ class HINTLoss(nn.Module):
     of penalizing wrong reason it rewards right reason.
     """
 
-    def __init__(self, regularizer_rate=0.1, base_criterion=F.cross_entropy, reduction='sum', \
+    def __init__(self, regularizer_rate=100, base_criterion=F.cross_entropy, reduction='sum', \
         last_conv_specified=False, upsample=False, weight=None, positive_only=False, rr_clipping=None):
         """
         Args:
@@ -542,72 +542,12 @@ class HINTLoss_IG(nn.Module):
         model.train()  # probably useless
         return res, right_answer_loss, right_reason_loss
 
-# class HINTLoss_IG2(nn.Module):
-#     """
-#     HINT Loss extended version with IG instead of GradCam
-#     """
-#
-#     def __init__(self, regularizer_rate=100, base_criterion=F.cross_entropy, reduction='sum', rr_clipping=None):
-#         """
-#         Args:
-#             regularizer_rate: controls the influence of the right reason loss.
-#             base_criterion: criterion to use for right answer loss
-#             reduction: reduction method either 'none', 'mean', 'sum'.
-#             last_conv_specified: if True then uses the last convolutional layer
-#                 which must have the name 'last_conv' in the network definition. If
-#                 False then the last conv layer is calculated dynamically every time
-#                 (increases run time).
-#             upsample: if True then the saliency masks of the model are upsampled to match
-#                 the user explanation masks. If False then the user expl masks are downsampled.
-#             weight: if specified then weight right reason loss by classes. Tensor
-#                 with shape (c,) c=classes.
-#             positive_only: if True all negative attribution gets zero.
-#             rr_clipping: sets the max right reason loss to specified value -> Helps smoothing
-#                 and stabilizing training process.
-#         """
-#         super().__init__()
-#         self.regularizer_rate = regularizer_rate
-#         self.base_criterion = base_criterion
-#         self.reduction = reduction
-#         self.rr_clipping = rr_clipping
-#
-#     def forward(self, model, X, y, expl, logits, device):
-#         # calculate right answer loss
-#         right_answer_loss = self.base_criterion(logits, y)
-#         model.eval()
-#
-#         # get gradients w.r.t. to the input
-#         log_prob_ys = F.log_softmax(logits, dim=1)
-#         log_prob_ys.retain_grad()
-#         gradXes = torch.autograd.grad(log_prob_ys, X, torch.ones_like(log_prob_ys), \
-#                                       create_graph=True, allow_unused=True)[0]
-#
-#         A_gradX = -(torch.mul(expl, gradXes) ** 2)
-#
-#         right_reason_loss = torch.zeros(1,).to(device)
-#
-#         if self.reduction == 'sum':
-#             right_reason_loss += torch.sum(A_gradX)
-#         elif self.reduction == 'mean':
-#             right_reason_loss += torch.sum(A_gradX) / len(X)
-#
-#         right_reason_loss *= self.regularizer_rate
-#
-#         # Human-Network Importance Alignment via loss
-#         if self.rr_clipping is not None:
-#             if right_reason_loss > self.rr_clipping:
-#                 right_reason_loss = right_reason_loss - right_reason_loss + self.rr_clipping
-#
-#         res = right_reason_loss + right_answer_loss
-#         model.train()  # probably useless
-#         return res, right_answer_loss, right_reason_loss
-
 class MixLoss1(nn.Module):
     """
     MixLoss1 = RRR + RBR + RRRG
     """
     def __init__(self, regularizer_rate = None, base_criterion=F.cross_entropy, \
-            rr_clipping=None, weight=None, last_conv_specified=False, reduction='sum', regrate_rrr = 10, regrate_rbr = 100000, regrate_rrrg = 1):
+            rr_clipping=None, weight=None, last_conv_specified=False, reduction='sum', regrate_rrr=10, regrate_rbr=100000, regrate_rrrg=1):
 
         super().__init__()
         self.regularizer_rate = regularizer_rate
@@ -1688,6 +1628,90 @@ class MixLoss18(nn.Module):
         #     else:
         #         rr_loss = torch.IntTensor(rr_loss)
         #     right_reason_loss += rr_loss
+
+        res = right_answer_loss + right_reason_loss
+
+        return res, right_answer_loss, right_reason_loss
+
+class MixLossGeneral(nn.Module):
+    """
+    Combine Loss Function
+    """
+
+    def __init__(self, regularizer_rate=None, base_criterion=F.cross_entropy, weight=None, \
+                 rr_clipping=None, reduction='sum', last_conv_specified=False, model_type='mnist', \
+                 upsample=False, positive_only=False, regrate_rrr=None, regrate_rbr=None, \
+                 regrate_rrrg=None, regrate_cdep=None, regrate_hint=None, regrate_hint_ig=None, ce=False):
+        super().__init__()
+        self.regularizer_rate = regularizer_rate
+        self.base_criterion = base_criterion
+        self.weight = weight
+        self.rr_clipping = rr_clipping
+        self.reduction = reduction
+        self.last_conv_specified = last_conv_specified
+        self.model_type = model_type
+        self.upsample = upsample
+        self.positive_only = positive_only
+        self.regrate_rrr = regrate_rrr
+        self.regrate_rbr = regrate_rbr
+        self.regrate_rrrg = regrate_rrrg
+        self.regrate_cdep = regrate_cdep
+        self.regrate_hint = regrate_hint
+        # self.regrate_hint_ig = regrate_hint_ig
+
+    def forward(self, model, X, y, expl_p, expl_r, logits, device, mask=None):
+        right_answer_loss = 0
+        right_reason_loss = 0
+        count = 0
+
+        # breakpoint()
+        if self.regrate_rrr is not None:
+            count = count + 1
+            self.regularizer_rate = self.regrate_rrr
+            RRR = RRRLoss.forward(self, X, y, expl_p, logits, mask)
+            right_answer_loss += RRR[1]
+            right_reason_loss += RRR[2]
+
+        if self.regrate_rbr is not None:
+            count = count + 1
+            self.regularizer_rate = self.regrate_rbr
+            RBR = RBRLoss.forward(self, model, X, y, expl_p.float(), logits, mask)
+            right_answer_loss += RBR[1]
+            right_reason_loss += RBR[2]
+
+        if self.regrate_rrrg is not None:
+            count = count + 1
+            self.regularizer_rate = self.regrate_rrrg
+            RRRG = RRRGradCamLoss.forward(self, model, X, y, expl_p.float(), logits, device, mask)
+            right_answer_loss += RRRG[1]
+            right_reason_loss += RRRG[2]
+
+        if self.regrate_cdep is not None:
+            count = count + 1
+            self.regularizer_rate = self.regrate_cdep
+            CDEP = CDEPLoss.forward(self, model, X, y, expl_p.float(), logits, device, mask)
+            right_answer_loss += CDEP[1]
+            right_reason_loss += CDEP[2][0]
+
+        if self.regrate_hint is not None:
+            count = count + 1
+            self.regularizer_rate = self.regrate_hint
+            self.last_conv_specified = True
+            self.upsample = True
+            HINT = HINTLoss.forward(self, model, X, y, expl_r, logits, device, mask)
+            right_answer_loss += HINT[1]
+            right_reason_loss += HINT[2][0]
+
+        # if self.regrate_hint_ig is not None:
+        #     count = count+1
+        #     self.regularizer_rate = self.regrate_hint_ig
+        #     # self.last_conv_specified = True
+        #     # self.upsample = True
+        #     HINT_IG = HINTLoss_IG.forward(self, model, X, y, expl_r, logits, device)
+        #     right_answer_loss += HINT_IG[1]
+        #     right_reason_loss += HINT_IG[2][0]
+
+        right_answer_loss /= count
 
         res = right_answer_loss + right_reason_loss
 

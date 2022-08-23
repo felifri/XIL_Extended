@@ -15,7 +15,7 @@ from rtpt import RTPT
 
 from xil_methods.xil_loss import RRRGradCamLoss, RRRLoss, CDEPLoss, HINTLoss, RBRLoss, HINTLoss_IG, MixLoss1, MixLoss2, MixLoss3, \
     MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, MixLoss11, MixLoss12, MixLoss13, MixLoss14, \
-    MixLoss15, MixLoss16, MixLoss17, MixLoss18
+    MixLoss15, MixLoss16, MixLoss17, MixLoss18, MixLossGeneral
 
 class Learner:
     """Implements a ML learner (based on PyTorch model)."""
@@ -75,6 +75,10 @@ class Learner:
             f.write("epoch,acc,loss,ra_loss,rr_loss,val_acc,val_loss,time\n")
             best_train_loss = 100000
             elapsed_time = 0
+
+            if isinstance(self.loss, MixLoss8_ext) or isinstance(self.loss, MixLoss11) or isinstance(self.loss, MixLoss12) or isinstance(self.loss, MixLoss13):
+                t = open(f"./testing/{self.modelname}--loss.txt", "w")
+                t.close()
 
             for epoch in range(1, epochs+1):
                 #how_many_rawr_epoch = torch.tensor([0])
@@ -195,7 +199,7 @@ class Learner:
                             X.requires_grad_()
                             output = self.model(X)
                             expl_r = expl_r.float()
-                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device)
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device, epoch, self.modelname)
                         elif isinstance(self.loss, MixLoss9):
                             X, y, expl_p, expl_r = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device), data[3].to(self.device)
                             X.requires_grad_()
@@ -209,21 +213,21 @@ class Learner:
                             output = self.model(X)
                             expl_p = expl_p.float()
                             expl_r = expl_r.float()
-                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device)
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device, epoch, self.modelname)
                         elif isinstance(self.loss, MixLoss12):
                             X, y, expl_p, expl_r = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device), data[3].to(self.device)
                             X.requires_grad_()
                             output = self.model(X)
                             expl_p = expl_p.float()
                             expl_r = expl_r.float()
-                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device)
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device, epoch, self.modelname)
                         elif isinstance(self.loss, MixLoss13):
                             X, y, expl_p, expl_r = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device), data[3].to(self.device)
                             X.requires_grad_()
                             output = self.model(X)
                             expl_p = expl_p.float()
                             expl_r = expl_r.float()
-                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device)
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device, epoch, self.modelname)
                         elif isinstance(self.loss, MixLoss14):
                             X, y, expl, mask = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device), data[3].to(self.device)
                             X.requires_grad_()
@@ -254,6 +258,11 @@ class Learner:
                             output = self.model(X)
                             loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl, mask, output, self.device)
                             # loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl, mask, self.device)
+                        elif isinstance(self.loss, MixLossGeneral):
+                            X, y, expl_p, expl_r, mask = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device), data[3].to(self.device), data[4].to(self.device)
+                            X.requires_grad_()
+                            output = self.model(X)
+                            loss, ra_loss_c, rr_loss_c = self.loss(self.model, X, y, expl_p, expl_r, output, self.device, mask)
 
 
                         else:
@@ -277,11 +286,18 @@ class Learner:
                     # for tracking right answer and right reason loss
                     if isinstance(self.loss, (RRRLoss, HINTLoss, CDEPLoss, RBRLoss, RRRGradCamLoss, HINTLoss_IG, MixLoss1, MixLoss2,\
                                               MixLoss3, MixLoss4, MixLoss5, MixLoss6, MixLoss7, MixLoss8, MixLoss8_ext, MixLoss9, \
-                                              MixLoss11, MixLoss12, MixLoss13, MixLoss14, MixLoss15, MixLoss16, MixLoss17, MixLoss18)) \
+                                              MixLoss11, MixLoss12, MixLoss13, MixLoss14, MixLoss15, MixLoss16, MixLoss17, MixLoss18, MixLossGeneral)) \
                         and (epoch) > disable_xil_loss_first_n_epochs:
                         ra_loss += ra_loss_c.item()
                         rr_loss += rr_loss_c.item()
-                
+
+                # if epoch in [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]:
+                #     t = open(f"./testing/{self.modelname}--loss.txt", "a")
+                #     t.write(f'Epoch : {epoch} \n')
+                #     t.write(f'Right Answer Loss : {ra_loss}\n')
+                #     t.write(f'Right Reason Loss : {rr_loss}\n\n')
+                #     t.close()
+
                 train_loss /= size
                 correct /= size
                 ra_loss /= size
