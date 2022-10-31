@@ -40,7 +40,6 @@ args = parser.parse_args()
 
 DEVICE = "cuda"
 SEED = [1, 10, 100, 1000, 10000]
-# SEED2 = [1, 2, 3, 4, 5]
 SHUFFLE = True
 BATCH_SIZE = 256
 LEARNING_RATE = 0.001
@@ -52,6 +51,8 @@ VERBOSE_AFTER_N_EPOCHS = 2
 
 i = args.run
 util.seed_all(SEED[i])
+
+args.reg = None
 
 model = dnns.SimpleConvNet().to(DEVICE)
 if args.mode == 'Mix1':
@@ -81,6 +82,16 @@ elif args.mode == 'Mix12':
 elif args.mode == 'Mix13':
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.rrrg},{args.hint_ig}--seed={SEED[i]}--run={i}'
 else:
+    if args.mode == 'RRR' or args.mode == 'Mix14':
+        args.reg = args.rrr
+    elif args.mode == 'RBR' or args.mode == 'Mix15':
+        args.reg = args.rbr
+    elif args.mode == 'RRR-G' or args.mode == 'Mix16':
+        args.reg = args.rrrg
+    elif args.mode == 'CDEP' or args.mode == 'Mix17':
+        args.reg = args.cdep
+    elif args.mode == 'HINT' or args.mode == 'Mix18':
+        args.reg = args.hint
     MODELNAME = f'Decoy{args.dataset}-CNN-{args.mode}--reg={args.reg}--seed={SEED[i]}--run={i}'
 
 filename = './img_wr_metric/' + str(MODELNAME) + '--' + str(args.method) + '.txt'
@@ -101,7 +112,6 @@ for line in lines:
 if args.dataset == 'Mnist':
     train_dataloader, test_dataloader = decoy_mnist_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
     if args.mode == 'Vanilla':
-        args.reg = None
         args.mode = 'CEL'
         loss_fn = nn.CrossEntropyLoss()
     elif args.mode == 'RRR':
@@ -131,7 +141,6 @@ if args.dataset == 'Mnist':
         loss_fn = HINTLoss_IG(args.reg, reduction='mean')
     elif args.mode == 'CE':
         train_dataloader, val_dataloader = decoy_mnist_CE_augmented_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-        args.reg = None
         loss_fn = nn.CrossEntropyLoss()
     elif args.mode == 'CDEP':
         # args.reg = 1000000
@@ -139,63 +148,50 @@ if args.dataset == 'Mnist':
         loss_fn = CDEPLoss(args.reg)
     elif args.mode == 'Mix1':
         # Loss function combination of RRR, RBR, and RRRG
-        args.reg = None
         loss_fn = MixLoss1(regrate_rrr=args.rrr, regrate_rbr=args.rbr, regrate_rrrg=args.rrrg)
     elif args.mode == 'Mix2':
         # Loss function combination of RRRG and HINT
         train_dataloader, val_dataloader = decoy_mnist_both_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-        args.reg = None
         loss_fn = MixLoss2(regrate_rrrg=args.rrrg, regrate_hint=args.hint)
     elif args.mode == 'Mix3':
         # Loss function combination of RRR and CDEP
-        args.reg = None
         loss_fn = MixLoss3(regrate_rrr=args.rrr, regrate_cdep=args.cdep)
     elif args.mode == 'Mix4':
         # Loss function combination of RRR and RBR
-        args.reg = None
         loss_fn = MixLoss4(regrate_rrr=args.rrr, regrate_rbr=args.rbr)
     elif args.mode == 'Mix5':
         # Loss function combination of RBR and CDEP
-        args.reg = None
         loss_fn = MixLoss5(regrate_rbr=args.rbr, regrate_cdep=args.cdep)
     elif args.mode == 'Mix6':
         # Loss function combination of RRRG and CDEP
-        args.reg = None
         loss_fn = MixLoss6(regrate_rrrg=args.rrrg, regrate_cdep=args.cdep)
     elif args.mode == 'Mix7':
         # Loss function combination of CDEP and HINT
         train_dataloader, val_dataloader = decoy_mnist_both_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-        args.reg = None
         loss_fn = MixLoss7(regrate_cdep=args.cdep, regrate_hint=args.hint)
     elif args.mode == 'Mix8':
         # Loss function combination of RRR and HINT
         train_dataloader, val_dataloader = decoy_mnist_both_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-        args.reg = None
         loss_fn = MixLoss8(regrate_rrr=args.rrr, regrate_hint=args.hint)
     elif args.mode == 'Mix8ext':
         # Loss function combination of RRR and HINT_IG
         train_dataloader, val_dataloader = decoy_mnist_both_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-        args.reg = None
         loss_fn = MixLoss8_ext(regrate_rrr=args.rrr, regrate_hint_ig=args.hint_ig)
     elif args.mode == 'Mix9':
         # Loss function combination of RBR and HINT
         train_dataloader, val_dataloader = decoy_mnist_both_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-        args.reg = None
         loss_fn = MixLoss9(regrate_rbr=args.rbr, regrate_hint=args.hint)
     elif args.mode == 'Mix11':
         # Loss function combination of RBR and HINT
         train_dataloader, val_dataloader = decoy_mnist_both_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-        args.reg = None
         loss_fn = MixLoss11(regrate_rbr=args.rbr, regrate_hint_ig=args.hint_ig)
     elif args.mode == 'Mix12':
         # Loss function combination of CDEP and HINT_IG
         train_dataloader, val_dataloader = decoy_mnist_both_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-        args.reg = None
         loss_fn = MixLoss12(regrate_cdep=args.cdep, regrate_hint_ig=args.hint_ig)
     elif args.mode == 'Mix13':
         # Loss function combination of RRRG and HINT_IG
         train_dataloader, val_dataloader = decoy_mnist_both_retrain(elem_num=elem, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE)
-        args.reg = None
         loss_fn = MixLoss13(regrate_rrrg=args.rrrg, regrate_hint_ig=args.hint_ig)
     elif args.mode == 'Mix14':
         # Loss function combination of RRR and CE

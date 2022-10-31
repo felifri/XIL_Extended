@@ -194,7 +194,6 @@ if args.dataset == 'Mnist':
         train_dataloader, val_dataloader = decoy_mnist_all(train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, counter_ex=args.ce)
         args.reg = None
 
-        # TO DO : gives if for loss function
         regrate_rrr = None
         regrate_rbr = None
         regrate_rrrg = None
@@ -226,24 +225,33 @@ elif args.dataset == 'FMnist':
         args.mode == 'CEL'
         loss_fn = nn.CrossEntropyLoss()
     elif args.mode == 'RRR':
-        args.reg = 10
+        if args.rrr is None:
+            args.rrr = 10
+        args.reg = args.rrr
         loss_fn = RRRLoss(args.reg)
     elif args.mode == 'RBR':
-        args.reg = 1000000
+        if args.rbr is None:
+            args.rbr = 1000000
+        args.reg = args.rbr
         loss_fn = RBRLoss(args.reg)
     elif args.mode == 'RRR-G':
-        args.reg = 10
+        if args.rrrg is None:
+            args.rrrg = 10
+        args.reg = args.rrrg
         loss_fn = RRRGradCamLoss(args.reg)
         args.mode = 'RRRGradCAM'
     elif args.mode == 'HINT':
         train_dataloader, val_dataloader = decoy_mnist(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, \
                                                hint_expl=True)
-        args.reg = 0.00001
-        # args.reg = args.hint
+        if args.hint is None:
+            args.hint = 0.00001
+        args.reg = args.hint
         loss_fn = HINTLoss(args.reg, last_conv_specified=True, upsample=True, reduction='mean')
     elif args.mode == 'HINT_IG':
         train_dataloader, val_dataloader = decoy_mnist(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, \
                                        hint_expl=True)
+        if args.hint_ig is None:
+            args.hint_ig = 90000
         args.reg = args.hint_ig
         loss_fn = HINTLoss_IG(args.reg, reduction='mean')
     elif args.mode == 'CE':
@@ -251,7 +259,9 @@ elif args.dataset == 'FMnist':
         args.reg = None
         loss_fn = nn.CrossEntropyLoss()
     elif args.mode == 'CDEP':
-        args.reg = 2000000  
+        if args.cdep is None:
+            args.cdep = 2000000
+        args.reg = args.cdep
         loss_fn = CDEPLoss(args.reg)
     elif args.mode == 'Mix1':
         # Loss function combination of RRR, RBR, and RRRG
@@ -343,7 +353,6 @@ elif args.dataset == 'FMnist':
         train_dataloader, val_dataloader = decoy_mnist_all(fmnist=True, train_shuffle=SHUFFLE, device=DEVICE, batch_size=BATCH_SIZE, counter_ex=args.ce)
         args.reg = None
 
-        # TO DO : gives if for loss function
         regrate_rrr = None
         regrate_rbr = None
         regrate_rrrg = None

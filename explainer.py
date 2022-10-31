@@ -738,6 +738,10 @@ def quantify_wrong_reason(method, dataloader, model, device, name, wr_name,\
                 lrp = LRP(model)
                 attr = lrp.attribute(images_t, target=predicted)
 
+            elif method == 'integrated_gradient':
+                intgrad = IntegratedGradients(model)
+                attr = intgrad.attribute(images_t, target=predicted)
+
             elif method == 'ig_ross':
                 model.zero_grad()
                 # get gradients w.r.t. to the input

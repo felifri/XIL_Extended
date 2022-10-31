@@ -901,6 +901,7 @@ def decoy_mnist_CE_augmented(fmnist=False, batch_size=256, device='cuda', \
         Xt, yt = torch.from_numpy(Xt).type(torch.cuda.FloatTensor), \
             torch.from_numpy(yt).type(torch.cuda.LongTensor)
 
+    breakpoint()
     train, test = TensorDataset(X, y), TensorDataset(Xt, yt)
     return DataLoader(train, batch_size, train_shuffle), DataLoader(test, batch_size, test_shuffle)
 
@@ -1003,8 +1004,8 @@ def decoy_mnist_CE_augmented_retrain(elem_num, fmnist=False, batch_size=256, dev
     y_retrain = np.array(y_retrain)
 
     if not flatten: # if input for a conv net sets should not be flat
-        n_samples = X.shape[0]
-        X_retrain = X.reshape((n_samples, 1, 28, 28))
+        n_samples = X_retrain.shape[0]
+        X_retrain = X_retrain.reshape((n_samples, 1, 28, 28))
         Xt = Xt.reshape((10000, 1, 28, 28))
         # for current experiments we dont need the explanations anymore,
         # but if we need the expl we have to expand the expl set with all zeros masks for the last
@@ -1525,7 +1526,7 @@ def decoy_mnist_all(fmnist=False, batch_size=256, device='cuda', train_shuffle=F
         print(f"Train set was augmented: X.size= {len(X)}, y.size= {len(y)}")
         one = np.ones(60000, dtype=int)  # first 60000 are non CE
         zero = np.zeros(60000, dtype=int) # next 60000 are CE
-        mask = np.append(one, zero) # 0 = non CE, 1 = CE
+        mask = np.append(one, zero) # 0 = CE, 1 = non CE
 
         E_hint = np.append(E_hint, E_ce)
         E = np.append(E, E_ce)

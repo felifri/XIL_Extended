@@ -13,6 +13,7 @@ from xil_methods.xil_loss import RRRLoss, RRRGradCamLoss, CDEPLoss, HINTLoss, RB
 import util
 import explainer
 import argparse
+from rtpt import RTPT
 
 # Hyperparameters
 EPOCHS = 50

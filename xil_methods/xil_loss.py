@@ -344,12 +344,6 @@ class CDEPLoss(nn.Module):
         # calculate Contextual Decompostions (CD)
         rel, irrel = cd.cd(X, model, expl, device=device, model_type=self.model_type)
 
-        if mask is not None:
-            for i in range(len(rel)):
-                rel[i] = mask[i] * rel[i]
-                irrel[i] = mask[i] * irrel[i]
-            # print("!!! MASK NOT NONE !!!")
-
         right_reason_loss += F.softmax(torch.stack((rel.view(-1), irrel.view(-1)), dim=1), dim=1)[:, 0].mean()
 
         right_reason_loss *= self.regularizer_rate
@@ -461,11 +455,6 @@ class HINTLoss(nn.Module):
             for i in range(len(self.weight)):
                 class_indices_i = torch.nonzero((y == i), as_tuple=True)[0]
                 attr[class_indices_i] *= self.weight[i]
-
-        # if mask is not None:
-        #     for i in range(len(attr)):
-        #         attr[i] = mask[i] * attr[i]
-        #     print("!!! MASK NOT NONE !!!")
         
         if self.reduction == 'sum': 
             right_reason_loss += torch.sum(attr)
@@ -881,13 +870,6 @@ class MixLoss8_ext(nn.Module):
         right_answer_loss += HINT_IG[1]
         right_reason_loss += HINT_IG[2][0]
 
-        if epoch in [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]:
-            t = open(f"./testing/{modelname}--loss.txt", "a")
-            t.write(f'Epoch : {epoch}\n')
-            t.write(f'Right Reason Loss RRR : {RRR[2]}\n')
-            t.write(f'Right Reason Loss HINT_IG : {HINT_IG[2][0]}\n\n')
-            t.close()
-
         right_answer_loss /= 2
 
         res = right_answer_loss + right_reason_loss
@@ -964,13 +946,6 @@ class MixLoss11(nn.Module):
         right_answer_loss += HINT_IG[1]
         right_reason_loss += HINT_IG[2][0]
 
-        if epoch in [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]:
-            t = open(f"./testing/{modelname}--loss.txt", "a")
-            t.write(f'Epoch : {epoch}\n')
-            t.write(f'Right Reason Loss RRR : {RBR[2]}\n')
-            t.write(f'Right Reason Loss HINT_IG : {HINT_IG[2][0]}\n\n')
-            t.close()
-
         right_answer_loss /= 2
 
         res = right_answer_loss + right_reason_loss
@@ -1007,13 +982,6 @@ class MixLoss12(nn.Module):
         HINT_IG = HINTLoss_IG.forward(self, model, X, y, expl_r, logits, device)
         right_answer_loss += HINT_IG[1]
         right_reason_loss += HINT_IG[2][0]
-
-        if epoch in [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]:
-            t = open(f"./testing/{modelname}--loss.txt", "a")
-            t.write(f'Epoch : {epoch}\n')
-            t.write(f'Right Reason Loss RRR : {CDEP[2][0]}\n')
-            t.write(f'Right Reason Loss HINT_IG : {HINT_IG[2][0]}\n\n')
-            t.close()
 
         right_answer_loss /= 2
 
@@ -1052,13 +1020,6 @@ class MixLoss13(nn.Module):
         right_answer_loss += HINT_IG[1]
         right_reason_loss += HINT_IG[2][0]
 
-        if epoch in [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]:
-            t = open(f"./testing/{modelname}--loss.txt", "a")
-            t.write(f'Epoch : {epoch}\n')
-            t.write(f'Right Reason Loss RRR : {RRRG[2]}\n')
-            t.write(f'Right Reason Loss HINT_IG : {HINT_IG[2][0]}\n\n')
-            t.close()
-
         right_answer_loss /= 2
 
         res = right_answer_loss + right_reason_loss
@@ -1095,82 +1056,10 @@ class MixLoss14(nn.Module):
         right_answer_loss = 0
         right_reason_loss = 0
 
-        # mask = mask.tolist()
-        # for i, m in enumerate(mask):
-        #
-        #     temp = X.tolist()[i]
-        #     X_i = [temp]
-        #
-        #     temp = y.tolist()[i]
-        #     y_i = [temp]
-        #
-        #     temp = expl.tolist()[i]
-        #     expl_i = [temp]
-        #
-        #     if device == "cuda":
-        #         X_i = torch.cuda.FloatTensor(X_i)
-        #         y_i = torch.cuda.LongTensor(y_i)
-        #         expl_i = torch.cuda.LongTensor(expl_i)
-        #
-        #     else:
-        #         X_i = torch.FloatTensor(X_i)
-        #         y_i = torch.LongTensor(y_i)
-        #         expl_i = torch.LongTensor(expl_i)
-        #
-        #     X_i.requires_grad_()
-        #     logits_i = model(X_i)
-        #
-        #     if m == 0:
-        #         RRR = RRRLoss.forward(self, X_i, y_i, expl_i, logits_i)
-        #         ra_loss = RRR[1]
-        #         right_reason_loss += RRR[2]
-        #
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         ra_loss += CE
-        #
-        #         right_answer_loss += ra_loss / 2
-        #
-        #     elif mask == 1:
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         right_answer_loss += CE
-        #         rr_loss = [0]
-        #         if device == 'cuda':
-        #             rr_loss = torch.cuda.IntTensor(rr_loss)
-        #         else:
-        #             rr_loss = torch.IntTensor(rr_loss)
-        #         right_reason_loss += rr_loss
-
-        # rr_loss = [RRRLoss.forward(self, torch.cuda.FloatTensor([X.tolist()[i]]).requires_grad_(), torch.cuda.LongTensor([y.tolist()[i]]),\
-        #                            torch.cuda.LongTensor([expl.tolist()[i]]), torch.cuda.FloatTensor([logits.tolist()[i]]))[2] for i in range(len(X))]
-        # mask = np.array(mask.tolist())
-        # rr_loss = np.array(rr_loss)
-        #
-        # rr_loss = rr_loss * mask
-        # right_reason_loss += np.sum(rr_loss)
-        #
-        # ra_loss = [RRRLoss.forward(self, torch.cuda.FloatTensor([X.tolist()[i]]).requires_grad_(), torch.cuda.LongTensor([y.tolist()[i]]),\
-        #                            torch.cuda.LongTensor([expl.tolist()[i]]), torch.cuda.FloatTensor([logits.tolist()[i]]))[1] for i in range(len(X))]
-        # right_answer_loss += np.sum(ra_loss)
-
         RRR = RRRLoss.forward(self, X, y, expl, logits, mask)
         right_answer_loss += RRR[1]
         right_reason_loss += RRR[2]
 
-        # if mask == 0:
-        #     RRR = RRRLoss.forward(self, X, y, expl, logits)
-        #     right_answer_loss += RRR[1]
-        #     right_reason_loss += RRR[2]
-        #
-        # elif mask == 1:
-        #     CE = nn.CrossEntropyLoss.forward(self, logits, y)
-        #     right_answer_loss += CE
-        #     rr_loss = [0]
-        #     if device == 'cuda':
-        #         rr_loss = torch.cuda.IntTensor(rr_loss)
-        #     else:
-        #         rr_loss = torch.IntTensor(rr_loss)
-        #     right_reason_loss += rr_loss
-        #
         res = right_answer_loss + right_reason_loss
 
         return res, right_answer_loss, right_reason_loss
@@ -1205,79 +1094,9 @@ class MixLoss15(nn.Module):
         right_answer_loss = 0
         right_reason_loss = 0
 
-        # mask = mask.tolist()
-        # for i, m in enumerate(mask):
-        #
-        #     temp = X.tolist()[i]
-        #     X_i = [temp]
-        #
-        #     temp = y.tolist()[i]
-        #     y_i = [temp]
-        #
-        #     temp = expl.tolist()[i]
-        #     expl_i = [temp]
-        #
-        #     if device == "cuda":
-        #         X_i = torch.cuda.FloatTensor(X_i)
-        #         y_i = torch.cuda.LongTensor(y_i)
-        #         expl_i = torch.cuda.LongTensor(expl_i)
-        #
-        #     else:
-        #         X_i = torch.FloatTensor(X_i)
-        #         y_i = torch.LongTensor(y_i)
-        #         expl_i = torch.LongTensor(expl_i)
-        #
-        #     X_i.requires_grad_()
-        #     logits_i = model(X_i)
-        #
-        #     if m == 0:
-        #         RBR = RBRLoss.forward(self, model, X_i, y_i, expl_i, logits_i)
-        #         ra_loss = RBR[1]
-        #         right_reason_loss += RBR[2]
-        #
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         ra_loss += CE
-        #
-        #         right_answer_loss += ra_loss / 2
-        #
-        #     elif mask == 1:
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         right_answer_loss += CE
-        #         rr_loss = [0]
-        #         if device == 'cuda':
-        #             rr_loss = torch.cuda.IntTensor(rr_loss)
-        #         else:
-        #             rr_loss = torch.IntTensor(rr_loss)
-        #         right_reason_loss += rr_loss
-
-        # rr_loss = [RBRLoss.forward(self, model, X[i], y[i], expl[i], logits[i])[2] for i in range(len(X))]
-        # mask = np.array(mask.tolist())
-        # rr_loss = np.array(rr_loss)
-        #
-        # rr_loss = rr_loss * mask
-        # right_reason_loss += np.sum(rr_loss)
-        #
-        # ra_loss = [RBRLoss.forward(self, model, X[i], y[i], expl[i], logits[i])[1] for i in range(len(X))]
-        # right_answer_loss += np.sum(ra_loss)
-
         RBR = RBRLoss.forward(self, model, X, y, expl, logits, mask)
         right_answer_loss += RBR[1]
         right_reason_loss += RBR[2]
-
-        # if mask == 0:
-        #     RBR = RBRLoss.forward(self, model, X, y, expl, logits)
-        #     right_answer_loss += RBR[1]
-        #     right_reason_loss += RBR[2]
-        #
-        # elif mask == 1:
-        #     CE = nn.CrossEntropyLoss.forward(self, logits, y)
-        #     right_answer_loss += CE
-        #     rr_loss = [0]
-        #     if device == 'cuda':
-        #         rr_loss = torch.cuda.IntTensor(rr_loss)
-        #     else:
-        #         rr_loss = torch.IntTensor(rr_loss)
-        #     right_reason_loss += rr_loss
 
         res = right_answer_loss + right_reason_loss
 
@@ -1317,84 +1136,10 @@ class MixLoss16(nn.Module):
         right_answer_loss = 0
         right_reason_loss = 0
 
-        # mask = mask.tolist()
-        # for i, m in enumerate(mask):
-        #
-        #     temp = X.tolist()[i]
-        #     X_i = [temp]
-        #
-        #     temp = y.tolist()[i]
-        #     y_i = [temp]
-        #
-        #     temp = expl.tolist()[i]
-        #     expl_i = [temp]
-        #
-        #     if device == "cuda":
-        #         X_i = torch.cuda.FloatTensor(X_i)
-        #         y_i = torch.cuda.LongTensor(y_i)
-        #         expl_i = torch.cuda.LongTensor(expl_i)
-        #
-        #     else:
-        #         X_i = torch.FloatTensor(X_i)
-        #         y_i = torch.LongTensor(y_i)
-        #         expl_i = torch.LongTensor(expl_i)
-        #
-        #     X_i.requires_grad_()
-        #     logits_i = model(X_i)
-        #
-        #     if m == 0:
-        #         self.reduction = 'sum'
-        #         RRRG = RRRGradCamLoss.forward(self, model, X_i, y_i, expl, logits, device)
-        #         ra_loss = RRRG[1]
-        #         right_reason_loss += RRRG[2]
-        #
-        #         self.reduction = 'mean'
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         ra_loss += CE
-        #
-        #         right_answer_loss += ra_loss / 2
-        #
-        #     elif mask == 1:
-        #         self.reduction = 'mean'
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         right_answer_loss += CE
-        #         rr_loss = [0]
-        #         if device == 'cuda':
-        #             rr_loss = torch.cuda.IntTensor(rr_loss)
-        #         else:
-        #             rr_loss = torch.IntTensor(rr_loss)
-        #         right_reason_loss += rr_loss
-
-        # rr_loss = [RRRGradCamLoss.forward(self, model, X[i], y[i], expl[i], logits[i], device)[2] for i in range(len(X))]
-        # mask = np.array(mask.tolist())
-        # rr_loss = np.array(rr_loss)
-        #
-        # rr_loss = rr_loss * mask
-        # right_reason_loss += np.sum(rr_loss)
-        #
-        # ra_loss = [RRRGradCamLoss.forward(self, model, X[i], y[i], expl[i], logits[i], device)[1] for i in range(len(X))]
-        # right_answer_loss += np.sum(ra_loss)
 
         RRRG = RRRGradCamLoss.forward(self, model, X, y, expl, logits, device, mask)
         right_answer_loss += RRRG[1]
         right_reason_loss += RRRG[2]
-
-        # if mask == 0:
-        #     self.reduction = 'sum'
-        #     RRRG = RRRGradCamLoss.forward(self, model, X, y, expl, logits, device)
-        #     right_answer_loss += RRRG[1]
-        #     right_reason_loss += RRRG[2]
-        #
-        # elif mask == 1:
-        #     self.reduction = 'mean'
-        #     CE = nn.CrossEntropyLoss.forward(self, logits, y)
-        #     right_answer_loss += CE
-        #     rr_loss = [0]
-        #     if device == 'cuda':
-        #         rr_loss = torch.cuda.IntTensor(rr_loss)
-        #     else:
-        #         rr_loss = torch.IntTensor(rr_loss)
-        #     right_reason_loss += rr_loss
 
         res = right_answer_loss + right_reason_loss
 
@@ -1432,79 +1177,9 @@ class MixLoss17(nn.Module):
         right_answer_loss = 0
         right_reason_loss = 0
 
-        # mask = mask.tolist()
-        # for i, m in enumerate(mask):
-        #
-        #     temp = X.tolist()[i]
-        #     X_i = [temp]
-        #
-        #     temp = y.tolist()[i]
-        #     y_i = [temp]
-        #
-        #     temp = expl.tolist()[i]
-        #     expl_i = [temp]
-        #
-        #     if device == "cuda":
-        #         X_i = torch.cuda.FloatTensor(X_i)
-        #         y_i = torch.cuda.LongTensor(y_i)
-        #         expl_i = torch.cuda.LongTensor(expl_i)
-        #
-        #     else:
-        #         X_i = torch.FloatTensor(X_i)
-        #         y_i = torch.LongTensor(y_i)
-        #         expl_i = torch.LongTensor(expl_i)
-        #
-        #     X_i.requires_grad_()
-        #     logits_i = model(X_i)
-        #
-        #     if m == 0:
-        #         CDEP = CDEPLoss.forward(self, model, X, y, expl, logits, device)
-        #         ra_loss = CDEP[1]
-        #         right_reason_loss += CDEP[2][0]
-        #
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         ra_loss += CE
-        #
-        #         right_answer_loss += ra_loss / 2
-        #
-        #     elif mask == 1:
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         right_answer_loss += CE
-        #         rr_loss = [0]
-        #         if device == 'cuda':
-        #             rr_loss = torch.cuda.IntTensor(rr_loss)
-        #         else:
-        #             rr_loss = torch.IntTensor(rr_loss)
-        #         right_reason_loss += rr_loss
-
-        # rr_loss = [CDEPLoss.forward(self, model, X[i], y[i], expl[i], logits[i], device)[2][0] for i in range(len(X))]
-        # mask = np.array(mask.tolist())
-        # rr_loss = np.array(rr_loss)
-        #
-        # rr_loss = rr_loss * mask
-        # right_reason_loss += np.sum(rr_loss)
-        #
-        # ra_loss = [CDEPLoss.forward(self, model, X[i], y[i], expl[i], logits[i], device)[1] for i in range(len(X))]
-        # right_answer_loss += np.sum(ra_loss)
-
         CDEP = CDEPLoss.forward(self, model, X, y, expl, logits, device, mask)
         right_answer_loss += CDEP[1]
         right_reason_loss += CDEP[2][0]
-
-        # if mask == 0:
-        #     CDEP = CDEPLoss.forward(self, model, X, y, expl, logits, device)
-        #     right_answer_loss += CDEP[1]
-        #     right_reason_loss += CDEP[2][0]
-        #
-        # elif mask == 1:
-        #     CE = nn.CrossEntropyLoss.forward(self, logits, y)
-        #     right_answer_loss += CE
-        #     rr_loss = [0]
-        #     if device == 'cuda':
-        #         rr_loss = torch.cuda.IntTensor(rr_loss)
-        #     else:
-        #         rr_loss = torch.IntTensor(rr_loss)
-        #     right_reason_loss += rr_loss
 
         res = right_answer_loss + right_reason_loss
 
@@ -1550,84 +1225,9 @@ class MixLoss18(nn.Module):
         right_answer_loss = 0
         right_reason_loss = 0
 
-        # mask = mask.tolist()
-        # for i, m in enumerate(mask):
-        #
-        #     temp = X.tolist()[i]
-        #     X_i = [temp]
-        #
-        #     temp = y.tolist()[i]
-        #     y_i = [temp]
-        #
-        #     temp = expl.tolist()[i]
-        #     expl_i = [temp]
-        #
-        #     if device == "cuda":
-        #         X_i = torch.cuda.FloatTensor(X_i)
-        #         y_i = torch.cuda.LongTensor(y_i)
-        #         expl_i = torch.cuda.LongTensor(expl_i)
-        #
-        #     else:
-        #         X_i = torch.FloatTensor(X_i)
-        #         y_i = torch.LongTensor(y_i)
-        #         expl_i = torch.LongTensor(expl_i)
-        #
-        #     X_i.requires_grad_()
-        #     logits_i = model(X_i)
-        #
-        #     if m == 0:
-        #         self.reduction = 'sum'
-        #         HINT = HINTLoss.forward(self, model, X, y, expl, logits, device)
-        #         ra_loss = HINT[1]
-        #         right_reason_loss += HINT[2][0]
-        #
-        #         self.reduction = 'mean'
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         ra_loss += CE
-        #
-        #         right_answer_loss += ra_loss / 2
-        #
-        #     elif mask == 1:
-        #         self.reduction = 'mean'
-        #         CE = nn.CrossEntropyLoss.forward(self, logits_i, y_i)
-        #         right_answer_loss += CE
-        #         rr_loss = [0]
-        #         if device == 'cuda':
-        #             rr_loss = torch.cuda.IntTensor(rr_loss)
-        #         else:
-        #             rr_loss = torch.IntTensor(rr_loss)
-        #         right_reason_loss += rr_loss
-
-        # rr_loss = [HINTLoss.forward(self, model, X[i], y[i], expl[i], logits[i], device)[2][0] for i in range(len(X))]
-        # mask = np.array(mask.tolist())
-        # rr_loss = np.array(rr_loss)
-        #
-        # rr_loss = rr_loss * mask
-        # right_reason_loss += np.sum(rr_loss)
-        #
-        # ra_loss = [HINTLoss.forward(self, model, X[i], y[i], expl[i], logits[i], device)[1] for i in range(len(X))]
-        # right_answer_loss += np.sum(ra_loss)
-
         HINT = HINTLoss.forward(self, model, X, y, expl, logits, device, mask)
         right_answer_loss += HINT[1]
         right_reason_loss += HINT[2][0]
-
-        # if mask == 0:
-        #     # self.reduction = 'sum'
-        #     HINT = HINTLoss.forward(self, model, X, y, expl, logits, device)
-        #     right_answer_loss += HINT[1]
-        #     right_reason_loss += HINT[2][0]
-        #
-        # elif mask == 1:
-        #     # self.reduction = 'mean'
-        #     CE = nn.CrossEntropyLoss.forward(self, logits, y)
-        #     right_answer_loss += CE
-        #     rr_loss = [0]
-        #     if device == 'cuda':
-        #         rr_loss = torch.cuda.IntTensor(rr_loss)
-        #     else:
-        #         rr_loss = torch.IntTensor(rr_loss)
-        #     right_reason_loss += rr_loss
 
         res = right_answer_loss + right_reason_loss
 
@@ -1662,56 +1262,43 @@ class MixLossGeneral(nn.Module):
     def forward(self, model, X, y, expl_p, expl_r, logits, device, mask=None):
         right_answer_loss = 0
         right_reason_loss = 0
-        count = 0
 
         # breakpoint()
+        right_answer_loss += self.base_criterion(logits, y)
+
         if self.regrate_rrr is not None:
-            count = count + 1
             self.regularizer_rate = self.regrate_rrr
             RRR = RRRLoss.forward(self, X, y, expl_p, logits, mask)
-            right_answer_loss += RRR[1]
             right_reason_loss += RRR[2]
 
         if self.regrate_rbr is not None:
-            count = count + 1
             self.regularizer_rate = self.regrate_rbr
             RBR = RBRLoss.forward(self, model, X, y, expl_p.float(), logits, mask)
-            right_answer_loss += RBR[1]
             right_reason_loss += RBR[2]
 
         if self.regrate_rrrg is not None:
-            count = count + 1
             self.regularizer_rate = self.regrate_rrrg
             RRRG = RRRGradCamLoss.forward(self, model, X, y, expl_p.float(), logits, device, mask)
-            right_answer_loss += RRRG[1]
             right_reason_loss += RRRG[2]
 
         if self.regrate_cdep is not None:
-            count = count + 1
             self.regularizer_rate = self.regrate_cdep
             CDEP = CDEPLoss.forward(self, model, X, y, expl_p.float(), logits, device, mask)
-            right_answer_loss += CDEP[1]
             right_reason_loss += CDEP[2][0]
 
         if self.regrate_hint is not None:
-            count = count + 1
             self.regularizer_rate = self.regrate_hint
             self.last_conv_specified = True
             self.upsample = True
             HINT = HINTLoss.forward(self, model, X, y, expl_r, logits, device, mask)
-            right_answer_loss += HINT[1]
             right_reason_loss += HINT[2][0]
 
         # if self.regrate_hint_ig is not None:
-        #     count = count+1
         #     self.regularizer_rate = self.regrate_hint_ig
         #     # self.last_conv_specified = True
         #     # self.upsample = True
-        #     HINT_IG = HINTLoss_IG.forward(self, model, X, y, expl_r, logits, device)
-        #     right_answer_loss += HINT_IG[1]
+        #     HINT_IG = HINTLoss_IG.forward(self, model, X, y, expl_r, logits, device
         #     right_reason_loss += HINT_IG[2][0]
-
-        right_answer_loss /= count
 
         res = right_answer_loss + right_reason_loss
 
